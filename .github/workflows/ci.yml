@@ -17,4 +17,8 @@ jobs:
       - name: Mathematical verification (synthetic)
         run: python -m psychohistory.selftest
       - name: Empty-ledger epistemic check
-        run: psychohistory --db /tmp/psychohistory-ci.db evaluate --as-of "2026-10-06T22:00:00+00:00"
+        run: psychohistory --db /tmp/psychohistory-empty.db evaluate --as-of "2026-10-06T22:00:00+00:00"
+      - name: Load frozen prospective ledger
+        run: python -m psychohistory.bootstrap --db /tmp/psychohistory-live.db
+      - name: Evaluate frozen prospective ledger
+        run: psychohistory --db /tmp/psychohistory-live.db evaluate --as-of "2026-10-07T00:00:00+01:00"
