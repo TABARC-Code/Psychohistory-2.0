@@ -1,0 +1,16 @@
+[
+  {
+    "event_id": "UK_BOE_MORTGAGE_APPROVALS_2026_09_BELOW_AUG",
+    "domain": "housing_credit",
+    "observable_definition": "Bank of England seasonally adjusted net mortgage approvals for house purchase to individuals for September 2026",
+    "threshold_rule": "September 2026 value < August 2026 first-release value of 54,900",
+    "forecast_horizon_end": "2026-10-29T09:30:00+00:00",
+    "minimum_separation": "one monthly release",
+    "ambiguous_policy": "UNRESOLVED if release definition changes materially or September value is unavailable",
+    "source": "Bank of England Money and Credit",
+    "point_in_time_availability": "official publication timestamp",
+    "outcome_vintage": "first release",
+    "revision_policy": "score first release; retain later revisions separately",
+    "pipeline_position": "approval"
+  }
+]
