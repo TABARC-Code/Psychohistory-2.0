@@ -9,7 +9,7 @@ from .core.store import Store
 def load_seed(store, root="."):
     root = Path(root)
     housing = json.loads((root / "data/seed/uk_housing_credit_2026.json").read_text())
-    for i, row in enumerate(housing["observations"], 1):
+    for row in housing["observations"]:
         month = row["month"]
         store.add_observation(
             Observation(
@@ -22,7 +22,7 @@ def load_seed(store, root="."):
                 vintage="first_release",
                 revision_type="none",
                 pipeline_position="approval",
-                ancestry=("UK_MORTGAGE_APPROVAL_PIPELINE",),
+                ancestry=(f"UK_MORTGAGE_APPROVAL_EVENT_{month}",),
             )
         )
 
