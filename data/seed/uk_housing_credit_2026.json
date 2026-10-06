@@ -1,0 +1,57 @@
+{
+  "label": "POINT_IN_TIME_OFFICIAL_RELEASE_VALUES",
+  "series": "boe_net_mortgage_approvals_house_purchase_sa_thousands",
+  "unit": "thousands",
+  "observations": [
+    {
+      "month": "2026-01",
+      "value": 60,
+      "available_at": "2026-03-02T09:30:00+00:00"
+    },
+    {
+      "month": "2026-02",
+      "value": 62.6,
+      "available_at": "2026-03-30T09:30:00+01:00"
+    },
+    {
+      "month": "2026-03",
+      "value": 63.5,
+      "available_at": "2026-05-01T09:30:00+01:00"
+    },
+    {
+      "month": "2026-04",
+      "value": 65.9,
+      "available_at": "2026-06-02T09:30:00+01:00"
+    },
+    {
+      "month": "2026-05",
+      "value": 56.2,
+      "available_at": "2026-06-29T09:30:00+01:00"
+    },
+    {
+      "month": "2026-06",
+      "value": 58.2,
+      "available_at": "2026-07-29T09:30:00+01:00"
+    },
+    {
+      "month": "2026-07",
+      "value": 56.1,
+      "available_at": "2026-09-01T09:30:00+01:00"
+    },
+    {
+      "month": "2026-08",
+      "value": 54.9,
+      "available_at": "2026-09-29T09:30:00+01:00"
+    }
+  ],
+  "sources": [
+    "https://www.bankofengland.co.uk/statistics/money-and-credit/2026/january-2026",
+    "https://www.bankofengland.co.uk/statistics/money-and-credit/2026/february-2026",
+    "https://www.bankofengland.co.uk/statistics/money-and-credit/2026/march-2026",
+    "https://www.bankofengland.co.uk/statistics/money-and-credit/2026/april-2026",
+    "https://www.bankofengland.co.uk/statistics/money-and-credit/2026/may-2026",
+    "https://www.bankofengland.co.uk/statistics/money-and-credit/2026/june-2026",
+    "https://www.bankofengland.co.uk/statistics/money-and-credit/2026/july-2026",
+    "https://www.bankofengland.co.uk/statistics/money-and-credit/2026/august-2026"
+  ]
+}
