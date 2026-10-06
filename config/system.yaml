@@ -1,0 +1,9 @@
+version: '2.4'
+principles:
+  measurement_validity: 'An unquantified, unidentified or unvalidated quantity is not yet a measurement.'
+  evidence_independence: 'Distinct labels do not imply independent evidence.'
+  network_inference: 'A locally valid/significant result is not automatically a globally valid discovery.'
+defaults:
+  future_leakage: reject
+  unresolved_policy: unresolved
+  experimental_modules: [g23, anchors, sidecars]
