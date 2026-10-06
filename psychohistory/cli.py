@@ -15,8 +15,8 @@ def main():
     parser = argparse.ArgumentParser(prog="psychohistory")
     parser.add_argument("--db", default="registry/psychohistory.db")
     sub = parser.add_subparsers(dest="cmd", required=True)
-    evaluate_parser = sub.add_parser("evaluate")
-    evaluate_parser.add_argument("--as-of", required=True)
+    evaluation = sub.add_parser("evaluate")
+    evaluation.add_argument("--as-of", required=True)
     args = parser.parse_args()
     store = Store(args.db)
     if args.cmd == "evaluate":
