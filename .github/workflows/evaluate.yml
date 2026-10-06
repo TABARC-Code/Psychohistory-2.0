@@ -13,8 +13,13 @@ jobs:
           python-version: '3.12'
       - run: pip install -e .
       - run: mkdir -p reports registry
-      - run: psychohistory --db registry/psychohistory.db evaluate --as-of "$(date -u +%FT%TZ)" > reports/latest.json
+      - name: Mathematical verification (synthetic)
+        run: python -m psychohistory.selftest > reports/verification.json
+      - name: Empirical forecast evaluation
+        run: psychohistory --db registry/psychohistory.db evaluate --as-of "$(date -u +%FT%TZ)" > reports/latest.json
       - uses: actions/upload-artifact@v4
         with:
           name: psychohistory-evaluation
-          path: reports/latest.json
+          path: |
+            reports/verification.json
+            reports/latest.json
