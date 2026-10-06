@@ -15,6 +15,8 @@ jobs:
       - run: mkdir -p reports registry
       - name: Mathematical verification (synthetic)
         run: python -m psychohistory.selftest > reports/verification.json
+      - name: Load frozen point-in-time observations and forecasts
+        run: python -m psychohistory.bootstrap --db registry/psychohistory.db
       - name: Empirical forecast evaluation
         run: psychohistory --db registry/psychohistory.db evaluate --as-of "$(date -u +%FT%TZ)" > reports/latest.json
       - uses: actions/upload-artifact@v4
