@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, Mapping
+from collections.abc import Iterable, Mapping
 
 
 class ModuleStatus(str, Enum):
