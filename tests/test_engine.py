@@ -64,3 +64,53 @@ def test_ou_and_graph():
 
 def test_g23_refuses_weak_evidence():
     assert coupling_gate(out_of_sample_gain=0.1)["status"] == "TEST_UNRESOLVED"
+
+
+def test_memetic_copy_is_propagation_not_independent_origin():
+    observations = [
+        Observation(
+            "m1", "g1:meme", T(0), T(0), 1, "social",
+            evidence_role="propagation", content_ancestry=("meme-root",),
+            carrier="social", actor_id="a", community_id="c1",
+            semantic_variant="v1",
+        ),
+        Observation(
+            "m2", "g1:meme", T(1), T(1), 1, "social",
+            evidence_role="propagation", content_ancestry=("meme-root",),
+            carrier="social", actor_id="b", community_id="c2",
+            semantic_variant="v1",
+        ),
+        Observation(
+            "m3", "g1:meme", T(2), T(2), 1, "news",
+            evidence_role="propagation", content_ancestry=("meme-root",),
+            carrier="news", actor_id="c", community_id="c3",
+            semantic_variant="v2",
+        ),
+    ]
+    result = validate_observations(observations, T(3))
+    assert result["content_origin_breadth_upper_bound"] == 1
+    assert result["propagation_event_count"] == 3
+    assert result["carrier_breadth"] == 2
+    assert result["community_breadth"] == 3
+    assert result["semantic_variant_breadth"] == 2
+
+
+def test_memetic_resonance_does_not_assert_endorsement_or_attribution():
+    from psychohistory.g1.memetics import analyse_memetic_observations
+
+    observations = [
+        Observation(
+            f"m{i}", "g1:meme", T(i), T(i), 1, "social",
+            evidence_role="propagation", content_ancestry=("root",),
+            carrier="social", actor_id=f"a{i}", community_id=f"c{i % 2}",
+            semantic_variant=f"v{i % 2}",
+        )
+        for i in range(5)
+    ]
+    result = analyse_memetic_observations(observations)
+    assert result["status"] == "CANDIDATE_NOT_ADMITTED"
+    assert result["propagation"]["events"] == 5
+    assert result["social_resonance"]["endogenous_reproduction_fraction"] > 0
+    assert result["coordination"]["status"] == "UNRESOLVED"
+    assert result["attribution"]["status"] == "UNRESOLVED"
+    assert result["predictive_input"] is False
