@@ -19,3 +19,8 @@ The connected GitHub contents interface accepts UTF-8 text files and cannot tran
 The complete mathematical specification contains 1,811 paragraphs and approximately 17,900 words. It covers the constitutional principles, observation/vintage contracts, evidence ancestry, G1/G2/G3/G23, dependence and multiplicity, sequential inference, Stage A/B prediction, sidecars, historical anchors and recurrence, propagation graphs, Outcome Contracts, forecast ledger, validation, revision robustness, exact OU/Hawkes/network derivations, HSIC/distance covariance, surrogate contracts, survival/calibration/scoring, uncertainty, identifiability, raw-data-to-forecast operator, database/API/test contracts, failure vocabulary and storage policy.
 
 A binary-capable Git client or release uploader should copy the artifacts byte-for-byte and verify these digests. Do not regenerate them and call the result canonical unless the digest or revision is deliberately changed and recorded.
+
+
+## Executable amendments after 6 October 2026
+
+`MEMETIC_EVIDENCE_ADDENDUM.md` is a normative amendment to the stored 6 October binary specification. It introduces claim-relative evidence independence for copied/reproduced content, separates content ancestry from propagation observations, adds memetic social resonance as a latent behavioural inference, and explicitly separates coordination from attribution. It must be folded into the next regenerated canonical DOCX/PDF revision rather than silently editing the recorded 6 October artifact digests.

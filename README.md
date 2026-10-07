@@ -34,3 +34,10 @@ The complete mathematical specification is maintained as a versioned project art
 ## GitHub Actions
 
 `CI` runs tests on Python 3.11/3.12. `Scheduled evaluation` can run daily or manually and uploads the JSON evaluation as an artifact. It does not download arbitrary live data: source adapters must preserve publication time, vintage and provenance before they are admitted.
+
+
+## Memetic evidence semantics
+
+G1 treats repeated or copied content as claim-relative evidence. Shared content ancestry reduces independence for truth, origin and attribution claims, but distinct reproductions remain observations of propagation, penetration, synchronisation, mutation, topology and coordination. Memetic social-resonance diagnostics treat repetition, parody, mutation, persistence, independent recreation and cross-community spread as behavioural telemetry; they do not equate repetition with endorsement or claim to directly measure a collective subconscious.
+
+Coordination and attribution are separate inference stages. A coordination result cannot by itself establish domestic or foreign-state manipulation. See `specification/MEMETIC_EVIDENCE_ADDENDUM.md`.

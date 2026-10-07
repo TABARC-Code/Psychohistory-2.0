@@ -1,9 +1,22 @@
 version: '2.4'
 principles:
   measurement_validity: 'An unquantified, unidentified or unvalidated quantity is not yet a measurement.'
-  evidence_independence: 'Distinct labels do not imply independent evidence.'
+  evidence_independence: 'Evidence independence is claim-relative. Shared ancestry may reduce independence for truth, origin or attribution while distinct reproductions remain observations of propagation, penetration, synchronisation, mutation and coordination.'
   network_inference: 'A locally valid/significant result is not automatically a globally valid discovery.'
+  memetic_social_resonance: 'Memetic behaviour is both communication and behavioural telemetry. Adoption, rejection, parody, mutation, persistence, independent recreation and cross-community propagation may inform explicit attitudes and latent social states, but do not mechanically imply endorsement and do not directly measure a collective subconscious.'
+  attribution_separation: 'Propagation, coordination and attribution are separate inference problems. Evidence of coordination must not by itself be promoted to domestic or foreign-state attribution.'
 defaults:
   future_leakage: reject
   unresolved_policy: unresolved
   experimental_modules: [g23, anchors, sidecars]
+memetics:
+  decomposition: [dynamics, source_tree, genealogy_mutation, downstream_influence, coordination, social_resonance]
+  evidence_claims: [content_truth, origin, attribution, propagation, penetration, synchronisation, mutation, coordination, social_resonance]
+  resonance_observables: [adoption, rejection, parody, mutation, persistence, independent_recreation, cross_community_spread, endogenous_reproduction]
+  attribution_hypotheses:
+    - organic_endogenous
+    - domestic_coordinated
+    - foreign_coordinated
+    - common_broadcaster_or_event
+    - algorithmic_amplification
+    - sampling_or_measurement_artifact

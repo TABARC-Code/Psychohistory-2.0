@@ -16,9 +16,19 @@ class Observation:
     quality: float = 1.0
     pipeline_position: str | None = None
     ancestry: tuple[str, ...] = ()
+    evidence_role: str = "measurement"
+    content_ancestry: tuple[str, ...] = ()
+    carrier: str | None = None
+    actor_id: str | None = None
+    community_id: str | None = None
+    semantic_variant: str | None = None
 
     def visible(self, as_of: datetime) -> bool:
         return self.available_at <= as_of
+
+    @property
+    def is_propagation(self) -> bool:
+        return self.evidence_role == "propagation"
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
