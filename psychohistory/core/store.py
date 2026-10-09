@@ -1,6 +1,7 @@
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
+import math
 from pathlib import Path
 
 from .models import Forecast, Observation
@@ -15,6 +16,15 @@ CREATE TABLE IF NOT EXISTS forecasts(forecast_id TEXT PRIMARY KEY,event_id TEXT,
 CREATE TABLE IF NOT EXISTS outcomes(event_id TEXT, resolved_at TEXT, outcome INTEGER CHECK(outcome IN(0,1)), vintage TEXT, PRIMARY KEY(event_id,vintage));
 CREATE TABLE IF NOT EXISTS hypotheses(hypothesis_id TEXT PRIMARY KEY,family TEXT,status TEXT,predictive_input INTEGER DEFAULT 0,metadata TEXT);"""
 
+
+def _instant(value):
+    if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("timezone-aware datetime required")
+    return value.astimezone(timezone.utc)
+
+def _probability(value, label):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
+        raise ValueError(f"{label} must be a finite probability in [0,1]")
 
 class Store:
     def __init__(self, path):
@@ -44,8 +54,8 @@ class Store:
             content_ancestry,carrier,actor_id,community_id,semantic_variant)
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
-                o.observation_id, o.series, o.effective_at.isoformat(),
-                o.available_at.isoformat(), o.value, o.source, o.vintage,
+                o.observation_id, o.series, _instant(o.effective_at).isoformat(),
+                _instant(o.available_at).isoformat(), o.value, o.source, o.vintage,
                 o.revision_type, o.quality, o.pipeline_position,
                 json.dumps(o.ancestry), o.evidence_role,
                 json.dumps(o.content_ancestry), o.carrier, o.actor_id,
@@ -59,7 +69,7 @@ class Store:
         vintage,revision_type,quality,pipeline_position,ancestry,evidence_role,
         content_ancestry,carrier,actor_id,community_id,semantic_variant
         FROM observations WHERE available_at<=?"""
-        args = [as_of.isoformat()]
+        args = [_instant(as_of).isoformat()]
         if series:
             q += " AND series=?"
             args.append(series)
@@ -75,25 +85,38 @@ class Store:
         ]
 
     def add_forecast(self, f: Forecast):
-        if not 0 <= f.probability <= 1:
-            raise ValueError("probability must be in [0,1]")
+        _probability(f.probability, "probability")
+        if f.baseline_probability is not None:
+            _probability(f.baseline_probability, "baseline_probability")
+        if _instant(f.origin) >= _instant(f.horizon_end):
+            raise ValueError("forecast origin must precede horizon")
         self.db.execute(
             "INSERT INTO forecasts(forecast_id,event_id,origin,horizon_end,probability,model,baseline_probability) VALUES(?,?,?,?,?,?,?)",
-            (f.forecast_id, f.event_id, f.origin.isoformat(), f.horizon_end.isoformat(),
+            (f.forecast_id, f.event_id, _instant(f.origin).isoformat(), _instant(f.horizon_end).isoformat(),
              f.probability, f.model, f.baseline_probability),
         )
         self.db.commit()
 
     def resolve(self, event_id, outcome, resolved_at, vintage="first_release"):
+        if type(outcome) is not int or outcome not in (0, 1):
+            raise ValueError("outcome must be integer 0 or 1")
+        if vintage not in ("first_release", "revision"):
+            raise ValueError("unknown outcome vintage")
         self.db.execute(
             "INSERT INTO outcomes VALUES(?,?,?,?)",
-            (event_id, resolved_at.isoformat(), int(outcome), vintage),
+            (event_id, _instant(resolved_at).isoformat(), outcome, vintage),
         )
         self.db.commit()
 
-    def scored(self):
+    def scored(self, as_of=None):
+        if as_of is None:
+            raise ValueError("as_of is required for point-in-time scoring")
+        cutoff = _instant(as_of).isoformat()
         return list(self.db.execute(
             "SELECT f.forecast_id,f.probability,f.baseline_probability,o.outcome "
             "FROM forecasts f JOIN outcomes o ON f.event_id=o.event_id "
-            "WHERE o.resolved_at>=f.horizon_end"
+            "WHERE o.vintage='first_release' AND o.resolved_at>=f.horizon_end "
+            "AND o.resolved_at<=? AND f.origin<f.horizon_end "
+            "ORDER BY f.forecast_id",
+            (cutoff,),
         ))
