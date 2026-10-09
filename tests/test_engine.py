@@ -36,7 +36,7 @@ def test_score_only_matured(tmp_path):
     store = Store(tmp_path / "x.db")
     store.add_forecast(Forecast("f", "e", T(0), T(2), 0.2, "m", 0.3))
     store.resolve("e", 1, T(1))
-    assert store.scored() == []
+    assert store.scored(as_of=T(3)) == []
 
 
 def test_brier():
