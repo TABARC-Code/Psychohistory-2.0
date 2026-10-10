@@ -5,7 +5,7 @@ from .validation.scoring import brier
 
 def evaluate(store, as_of):
     obs = store.observations_as_of(as_of)
-    scored = store.scored()
+    scored = store.scored(as_of=as_of)
     return {
         "as_of": as_of.isoformat(),
         "measurement": validate_observations(obs, as_of),
