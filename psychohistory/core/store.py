@@ -58,12 +58,12 @@ class Store:
         q = """SELECT observation_id,series,effective_at,available_at,value,source,
         vintage,revision_type,quality,pipeline_position,ancestry,evidence_role,
         content_ancestry,carrier,actor_id,community_id,semantic_variant
-        FROM observations WHERE available_at<=?"""
+        FROM observations WHERE julianday(available_at)<=julianday(?)"""
         args = [as_of.isoformat()]
         if series:
             q += " AND series=?"
             args.append(series)
-        q += " ORDER BY effective_at,available_at"
+        q += " ORDER BY julianday(effective_at),julianday(available_at)"
         return [
             Observation(
                 r[0], r[1], datetime.fromisoformat(r[2]), datetime.fromisoformat(r[3]),
