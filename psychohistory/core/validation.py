@@ -2,8 +2,36 @@ from collections import defaultdict
 
 
 def _collapsed_breadth(total, ancestry):
+    """Legacy count-only estimate; not suitable for overlapping ancestry sets."""
     dependent = {k: v for k, v in ancestry.items() if v > 1}
     return max(0, total - sum(v - 1 for v in dependent.values())), dependent
+
+
+def _component_breadth(observations, lineage_attribute):
+    """Count connected evidence groups; shared ancestors join observations.
+
+    This is a structural upper bound, not proof of statistical independence.
+    """
+    parents = list(range(len(observations)))
+    owners = {}
+    counts = defaultdict(int)
+
+    def root(i):
+        while parents[i] != i:
+            parents[i] = parents[parents[i]]
+            i = parents[i]
+        return i
+
+    for i, observation in enumerate(observations):
+        for ancestor in set(lineage_attribute(observation)):
+            counts[ancestor] += 1
+            if ancestor in owners:
+                parents[root(i)] = root(owners[ancestor])
+            else:
+                owners[ancestor] = i
+    return len({root(i) for i in range(len(observations))}), {
+        key: count for key, count in counts.items() if count > 1
+    }
 
 
 def validate_observations(obs, as_of):
@@ -37,11 +65,11 @@ def validate_observations(obs, as_of):
                 measurement_ancestry[ancestor] += 1
 
     ordinary = len(obs) - len(propagation)
-    measurement_breadth, shared_measurement = _collapsed_breadth(
-        ordinary, measurement_ancestry
+    measurement_breadth, shared_measurement = _component_breadth(
+        [o for o in obs if not o.is_propagation], lambda o: o.ancestry
     )
-    content_breadth, shared_content = _collapsed_breadth(
-        len(propagation), content_ancestry
+    content_breadth, shared_content = _component_breadth(
+        propagation, lambda o: o.content_ancestry or o.ancestry
     )
 
     carriers = {o.carrier for o in propagation if o.carrier}
