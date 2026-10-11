@@ -110,7 +110,9 @@ def test_memetic_resonance_does_not_assert_endorsement_or_attribution():
     result = analyse_memetic_observations(observations)
     assert result["status"] == "CANDIDATE_NOT_ADMITTED"
     assert result["propagation"]["events"] == 5
-    assert result["social_resonance"]["endogenous_reproduction_fraction"] > 0
+    assert result["social_resonance"]["endogenous_reproduction_fraction"] is None
+    assert result["social_resonance"]["endogenous_reproduction_status"] == "UNMEASURED"
+    assert result["social_resonance"]["shared_lineage_event_fraction"] == 1.0
     assert result["coordination"]["status"] == "UNRESOLVED"
     assert result["attribution"]["status"] == "UNRESOLVED"
     assert result["predictive_input"] is False
