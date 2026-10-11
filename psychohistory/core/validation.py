@@ -64,7 +64,6 @@ def validate_observations(obs, as_of):
             for ancestor in o.ancestry:
                 measurement_ancestry[ancestor] += 1
 
-    ordinary = len(obs) - len(propagation)
     measurement_breadth, shared_measurement = _component_breadth(
         [o for o in obs if not o.is_propagation], lambda o: o.ancestry
     )
