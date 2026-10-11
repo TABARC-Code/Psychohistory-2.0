@@ -30,8 +30,13 @@ def analyse_memetic_observations(observations):
         for ancestor in event.content_ancestry or event.ancestry:
             lineages[ancestor] += 1
 
-    repeated = sum(v - 1 for v in lineages.values() if v > 1)
-    endogenous_reproduction = repeated / len(events)
+    shared = {ancestor for ancestor, count in lineages.items() if count > 1}
+    shared_events = sum(
+        bool(set(event.content_ancestry or event.ancestry) & shared)
+        for event in events
+    )
+    shared_lineage_fraction = shared_events / len(events)
+    # Lineage overlap alone cannot identify endogenous reproduction.
     mutation_ratio = len(variants) / len(events) if variants else 0.0
     cross_community_breadth = len(communities)
     carrier_breadth = len(carriers)
@@ -41,7 +46,9 @@ def analyse_memetic_observations(observations):
     # as predictive features.
     resonance = {
         "event_count": len(events),
-        "endogenous_reproduction_fraction": endogenous_reproduction,
+        "endogenous_reproduction_fraction": None,
+        "endogenous_reproduction_status": "UNMEASURED",
+        "shared_lineage_event_fraction": shared_lineage_fraction,
         "semantic_variant_ratio": mutation_ratio,
         "community_breadth": cross_community_breadth,
         "carrier_breadth": carrier_breadth,
