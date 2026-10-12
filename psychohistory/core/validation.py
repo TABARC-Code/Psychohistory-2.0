@@ -1,4 +1,15 @@
 from collections import defaultdict
+from datetime import datetime
+from math import isfinite
+from numbers import Real
+
+
+def _finite_real(value):
+    return not isinstance(value, bool) and isinstance(value, Real) and isfinite(value)
+
+
+def _aware_instant(value):
+    return isinstance(value, datetime) and value.tzinfo is not None and value.utcoffset() is not None
 
 
 def _collapsed_breadth(total, ancestry):
@@ -35,21 +46,25 @@ def _component_breadth(observations, lineage_attribute):
 
 
 def validate_observations(obs, as_of):
+    if not _aware_instant(as_of):
+        raise ValueError("as_of must be a timezone-aware datetime")
     errors = []
     warnings = []
     seen = set()
-    measurement_ancestry = defaultdict(int)
-    content_ancestry = defaultdict(int)
     propagation = []
 
     for o in obs:
-        if o.available_at > as_of:
+        if not _aware_instant(o.available_at) or not _aware_instant(o.effective_at):
+            errors.append(f"invalid timestamp: {o.observation_id}")
+        elif o.available_at > as_of:
             errors.append(f"future leakage: {o.observation_id}")
         if o.observation_id in seen:
             errors.append(f"duplicate id: {o.observation_id}")
         seen.add(o.observation_id)
-        if not 0 <= o.quality <= 1:
+        if not _finite_real(o.quality) or not 0 <= o.quality <= 1:
             errors.append(f"invalid quality: {o.observation_id}")
+        if not _finite_real(o.value):
+            errors.append(f"invalid value: {o.observation_id}")
         if o.revision_type not in {
             "none", "scheduled_revision", "maturation",
             "methodological_revision", "correction"
@@ -58,18 +73,22 @@ def validate_observations(obs, as_of):
 
         if o.is_propagation:
             propagation.append(o)
-            for ancestor in o.content_ancestry or o.ancestry:
-                content_ancestry[ancestor] += 1
-        else:
-            for ancestor in o.ancestry:
-                measurement_ancestry[ancestor] += 1
 
+    measurement = [o for o in obs if not o.is_propagation]
+    known_measurement = [o for o in measurement if o.ancestry]
     measurement_breadth, shared_measurement = _component_breadth(
-        [o for o in obs if not o.is_propagation], lambda o: o.ancestry
+        known_measurement, lambda o: o.ancestry
     )
+    measurement_complete = len(known_measurement) == len(measurement)
+    if not measurement_complete:
+        warnings.append("measurement ancestry missing; evidence independence unresolved")
+    known_content = [o for o in propagation if o.content_ancestry]
     content_breadth, shared_content = _component_breadth(
-        propagation, lambda o: o.content_ancestry or o.ancestry
+        known_content, lambda o: o.content_ancestry
     )
+    content_complete = len(known_content) == len(propagation)
+    if not content_complete:
+        warnings.append("content ancestry missing; content-origin independence unresolved")
 
     carriers = {o.carrier for o in propagation if o.carrier}
     actors = {o.actor_id for o in propagation if o.actor_id}
@@ -81,9 +100,27 @@ def validate_observations(obs, as_of):
         "errors": errors,
         "warnings": warnings,
         "shared_measurement_ancestry": shared_measurement,
-        "measurement_informational_breadth_upper_bound": measurement_breadth,
+        "measurement_informational_breadth_upper_bound": (
+            measurement_breadth if measurement_complete else None
+        ),
+        "measurement_breadth_known_subset": measurement_breadth,
+        "measurement_ancestry_coverage": (
+            len(known_measurement) / len(measurement) if measurement else None
+        ),
+        "measurement_breadth_status": (
+            "BOUNDED" if measurement_complete else "UNRESOLVED"
+        ),
         "shared_content_ancestry": shared_content,
-        "content_origin_breadth_upper_bound": content_breadth,
+        "content_origin_breadth_upper_bound": (
+            content_breadth if content_complete else None
+        ),
+        "content_origin_breadth_known_subset": content_breadth,
+        "content_ancestry_coverage": (
+            len(known_content) / len(propagation) if propagation else None
+        ),
+        "content_origin_breadth_status": (
+            "BOUNDED" if content_complete else "UNRESOLVED"
+        ),
         "propagation_event_count": len(propagation),
         "carrier_breadth": len(carriers),
         "actor_breadth": len(actors),
@@ -95,5 +132,7 @@ def validate_observations(obs, as_of):
         ),
         # Compatibility: this remains the conservative breadth for ordinary
         # measurement evidence and must not be used to deduplicate G1 propagation.
-        "informational_breadth_upper_bound": measurement_breadth,
+        "informational_breadth_upper_bound": (
+            measurement_breadth if measurement_complete else None
+        ),
     }

@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .models import Forecast, Observation
+from .validation import validate_observations
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS observations(
 observation_id TEXT PRIMARY KEY, series TEXT, effective_at TEXT, available_at TEXT,
@@ -37,6 +38,9 @@ class Store:
         self.db.commit()
 
     def add_observation(self, o: Observation):
+        assessment = validate_observations([o], o.available_at)
+        if not assessment["valid"]:
+            raise ValueError("invalid observation: " + "; ".join(assessment["errors"]))
         self.db.execute(
             """INSERT INTO observations(
             observation_id,series,effective_at,available_at,value,source,vintage,

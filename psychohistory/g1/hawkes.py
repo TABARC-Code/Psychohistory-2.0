@@ -16,6 +16,12 @@ def fit_exponential_hawkes(events, T):
     if len(e) < 5:
         return {"status": "UNRESOLVED", "reason": "need >=5 events"}
     e = np.sort(e)
+    # No causal ordering can be inferred from identical recorded event times.
+    if np.any(np.diff(e) == 0):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "simultaneous events require a tie-aware observation model",
+        }
 
     def nll(z):
         with np.errstate(over="ignore", under="ignore", divide="ignore", invalid="ignore"):

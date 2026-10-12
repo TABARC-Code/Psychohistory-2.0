@@ -25,19 +25,34 @@ def analyse_memetic_observations(observations):
     actors = Counter(o.actor_id for o in events if o.actor_id)
     communities = Counter(o.community_id for o in events if o.community_id)
     variants = Counter(o.semantic_variant for o in events if o.semantic_variant)
+    # Collection-source ancestry and copied-content ancestry are distinct.
+    known_lineages = [set(o.content_ancestry) for o in events]
+    known_count = sum(bool(lineage) for lineage in known_lineages)
     lineages = defaultdict(int)
-    for event in events:
-        for ancestor in event.content_ancestry or event.ancestry:
+    lineage_communities = defaultdict(set)
+    for event, lineage in zip(events, known_lineages):
+        for ancestor in lineage:
             lineages[ancestor] += 1
+            if event.community_id:
+                lineage_communities[ancestor].add(event.community_id)
 
     shared = {ancestor for ancestor, count in lineages.items() if count > 1}
-    shared_events = sum(
-        bool(set(event.content_ancestry or event.ancestry) & shared)
-        for event in events
+    shared_events = sum(bool(lineage & shared) for lineage in known_lineages)
+    lineage_coverage = known_count / len(events)
+    shared_lineage_fraction = shared_events / len(events) if known_count == len(events) else None
+    cross_lineages = {
+        ancestor for ancestor, labels in lineage_communities.items() if len(labels) > 1
+    }
+    cross_events = sum(
+        bool(lineage & cross_lineages) and bool(event.community_id)
+        for event, lineage in zip(events, known_lineages)
     )
-    shared_lineage_fraction = shared_events / len(events)
-    # Lineage overlap alone cannot identify endogenous reproduction.
-    mutation_ratio = len(variants) / len(events) if variants else 0.0
+    community_coverage = sum(bool(o.community_id) for o in events) / len(events)
+    cross_complete = known_count == len(events) and community_coverage == 1
+    # Lineage overlap is descriptive, not a causal transmission estimate.
+    known_variants = sum(bool(o.semantic_variant) for o in events)
+    missing_variants = len(events) - known_variants
+    variant_richness_ratio = len(variants) / len(events) if not missing_variants else None
     cross_community_breadth = len(communities)
     carrier_breadth = len(carriers)
 
@@ -49,7 +64,26 @@ def analyse_memetic_observations(observations):
         "endogenous_reproduction_fraction": None,
         "endogenous_reproduction_status": "UNMEASURED",
         "shared_lineage_event_fraction": shared_lineage_fraction,
-        "semantic_variant_ratio": mutation_ratio,
+        "shared_lineage_observed_lower_bound": shared_events / len(events),
+        "content_lineage_coverage": lineage_coverage,
+        "cross_community_lineage_event_fraction": (
+            cross_events / len(events) if cross_complete else None
+        ),
+        "cross_community_lineage_observed_lower_bound": cross_events / len(events),
+        "community_label_coverage": community_coverage,
+        "cross_community_lineage_count": len(cross_lineages),
+        "cross_community_interpretation": (
+            "observed shared content, not directional transmission or causation"
+        ),
+        "semantic_variant_ratio": variant_richness_ratio,
+        "semantic_variant_observed_lower_bound": len(variants) / len(events),
+        "semantic_variant_possible_upper_bound": (
+            len(variants) + missing_variants
+        ) / len(events),
+        "semantic_variant_coverage": known_variants / len(events),
+        "semantic_variant_interpretation": (
+            "distinct labelled variants per event, not a mutation rate"
+        ),
         "community_breadth": cross_community_breadth,
         "carrier_breadth": carrier_breadth,
         "persistence_span_seconds": (
@@ -67,6 +101,7 @@ def analyse_memetic_observations(observations):
             "actors_observed": len(actors),
             "communities_observed": len(communities),
             "content_lineages": len(lineages),
+            "events_with_known_content_lineage": known_count,
         },
         "social_resonance": resonance,
         "coordination": {
