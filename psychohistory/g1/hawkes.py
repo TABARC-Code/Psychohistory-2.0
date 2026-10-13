@@ -16,6 +16,11 @@ def fit_exponential_hawkes(events, T):
     if len(e) < 5:
         return {"status": "UNRESOLVED", "reason": "need >=5 events"}
     e = np.sort(e)
+    # A continuous-time point process cannot order simultaneous rounded events.
+    # Treat ties as unresolved instead of creating artificial self-excitation.
+    if np.any(np.diff(e) == 0):
+        return {"status": "UNRESOLVED",
+                "reason": "tied timestamps: event ordering is unidentifiable"}
 
     def nll(z):
         with np.errstate(over="ignore", under="ignore", divide="ignore", invalid="ignore"):
