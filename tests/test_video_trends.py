@@ -1,7 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from psychohistory.g1.video_trends import analyse_video_trends
 
-UTC = UTC
 T = datetime(2026, 10, 13, tzinfo=UTC)
 
 def record(views, observed, **kw):

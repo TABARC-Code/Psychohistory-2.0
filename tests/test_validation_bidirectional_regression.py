@@ -10,7 +10,7 @@ def observation(name, ancestry, propagation=False):
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return SimpleNamespace(
         observation_id=name, available_at=now, effective_at=now,
-        quality=1.0, revision_type="none", is_propagation=propagation,
+        value=1.0, quality=1.0, revision_type="none", is_propagation=propagation,
         ancestry=tuple(ancestry), content_ancestry=tuple(ancestry),
         carrier=None, actor_id=None, community_id=None, semantic_variant=None,
     )
@@ -44,3 +44,12 @@ def test_reverse_edge_not_inferred():
     view = reciprocal_view([forward, backward])
     assert all(item["reverse_present"] for item in view)
     assert not any(item["admitted"] for item in view)
+
+
+def test_nonfinite_and_boolean_observations_fail_measurement_validation():
+    for invalid in (float("nan"), float("inf"), -float("inf"), True):
+        row = observation("bad", ("source",))
+        row.value = invalid
+        result = validate_observations([row], datetime(2026, 1, 2, tzinfo=UTC))
+        assert not result["valid"]
+        assert any("invalid numeric value" in e for e in result["errors"])
