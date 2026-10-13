@@ -1,10 +1,12 @@
-"""Bidirectional hypothesis registry, without automatic causal admission.
+"""Bidirectional lag-family registry; not a causal estimator.
 
-A -> B and B -> A are separate hypotheses with their own evidence and lags.
-This module does not estimate causal effects or feed predictions.
+Each direction and lag is a separate hypothesis. The registry does not
+independently validate evidence provenance, multiplicity or predictive skill.
 """
+from collections import Counter
 from dataclasses import dataclass
 from math import isfinite
+from numbers import Real
 
 
 @dataclass(frozen=True)
@@ -17,30 +19,53 @@ class DirectedHypothesis:
     evidence_ids: tuple[str, ...] = ()
 
     def __post_init__(self):
-        if not self.source or not self.target or self.source == self.target:
+        if (not isinstance(self.source, str) or not self.source
+                or not isinstance(self.target, str) or not self.target
+                or self.source == self.target):
             raise ValueError("distinct nonempty source and target required")
-        if self.lag_days < 0:
-            raise ValueError("lag_days must be nonnegative")
-        if self.coefficient is not None and not isfinite(self.coefficient):
-            raise ValueError("coefficient must be finite")
+        if type(self.lag_days) is not int or self.lag_days < 0:
+            raise ValueError("lag_days must be a nonnegative integer")
+        if self.coefficient is not None:
+            if (isinstance(self.coefficient, bool)
+                    or not isinstance(self.coefficient, Real)):
+                raise ValueError("coefficient must be finite")
+            try:
+                finite = isfinite(self.coefficient)
+            except (ValueError, TypeError, OverflowError):
+                finite = False
+            if not finite:
+                raise ValueError("coefficient must be finite")
+        if type(self.admitted) is not bool:
+            raise ValueError("admitted must be Boolean")
         if self.admitted and (self.coefficient is None or not self.evidence_ids):
             raise ValueError("admission requires a finite coefficient and evidence")
 
 
 def reciprocal_view(hypotheses):
-    """Describe reciprocal hypotheses; never invent the missing reverse edge."""
-    edges = {(h.source, h.target): h for h in hypotheses}
-    if len(edges) != len(hypotheses):
-        raise ValueError("duplicate directed hypothesis")
+    """Show reciprocal lag families without inventing a reverse causal edge."""
+    rows = list(hypotheses)
+    edges = {(h.source, h.target, h.lag_days): h for h in rows}
+    if len(edges) != len(rows):
+        raise ValueError("duplicate directed hypothesis at the same lag")
+    families = Counter((h.source, h.target) for h in rows)
     return [
         {
             "source": h.source,
             "target": h.target,
             "lag_days": h.lag_days,
             "admitted": h.admitted,
-            "reverse_present": (h.target, h.source) in edges,
-            "reverse_admitted": edges[(h.target, h.source)].admitted
-            if (h.target, h.source) in edges else False,
+            "lag_family_size": families[(h.source, h.target)],
+            "reverse_present": (h.target, h.source) in families,
+            "reverse_lags": sorted(
+                lag for (src, dst, lag) in edges
+                if src == h.target and dst == h.source
+            ),
+            "reverse_admitted": any(
+                other.admitted for (src, dst, _), other in edges.items()
+                if src == h.target and dst == h.source
+            ),
+            "multiplicity_status": "UNVERIFIED",
+            "predictive_input": False,
         }
-        for h in hypotheses
+        for h in rows
     ]
