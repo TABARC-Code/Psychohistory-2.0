@@ -4,15 +4,16 @@ The output is descriptive, not an inference about YouTube's recommender or
 population behaviour. Admission requires independent rolling-origin validation.
 """
 from collections import defaultdict
-from datetime import datetime, timezone
-from math import isfinite, log1p
+from datetime import UTC, datetime
+from itertools import pairwise
+from math import isfinite
 from statistics import median
 
 
 def _instant(value):
     if not isinstance(value, datetime) or value.tzinfo is None:
         raise ValueError("timezone-aware datetime required")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 def analyse_topic_spikes(windows, as_of, *, baseline_windows=4, ratio_threshold=3.0):
@@ -49,7 +50,7 @@ def analyse_topic_spikes(windows, as_of, *, baseline_windows=4, ratio_threshold=
     output = []
     for topic, entries in sorted(groups.items()):
         entries.sort(key=lambda x: x[0])
-        if any(a[1] > b[0] for a, b in zip(entries, entries[1:])):
+        if any(a[1] > b[0] for a, b in pairwise(entries)):
             rejected += 1
             continue
         if len(entries) < baseline_windows + 1:
@@ -58,7 +59,7 @@ def analyse_topic_spikes(windows, as_of, *, baseline_windows=4, ratio_threshold=
         prior = [e[2] for e in entries[-baseline_windows-1:-1]]
         current = entries[-1][2]
         exposure_ready = all(x.get("exposure_delta") is not None for x in prior + [current])
-        def rate(w):
+        def rate(w, exposure_ready=exposure_ready):
             return w["views_delta"] / w["exposure_delta"] if exposure_ready else w["views_delta"] / ((_instant(w["end"]) - _instant(w["start"])).total_seconds() / 3600)
         baseline = median(rate(x) for x in prior)
         now = rate(current)
@@ -95,7 +96,7 @@ def analyse_meme_watch(events, as_of):
             rejected += 1
     results = []
     for topic, rows in sorted(groups.items()):
-        def distinct(field):
+        def distinct(field, rows=rows):
             return len({row[field] for row in rows if isinstance(row.get(field), str) and row[field]})
         results.append({
             "topic": topic, "observations": len(rows),

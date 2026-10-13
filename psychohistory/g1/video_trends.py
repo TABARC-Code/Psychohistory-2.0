@@ -4,14 +4,14 @@ Public counts cannot identify recommendation algorithms or causal transmission.
 Every output is a non-admitted candidate until independently validated.
 """
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from math import isfinite, log1p
 
 
 def _utc(value):
     if not isinstance(value, datetime) or value.tzinfo is None:
         raise ValueError("timestamps must be timezone-aware datetimes")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 def analyse_video_trends(observations, as_of, *, min_creators=3):
