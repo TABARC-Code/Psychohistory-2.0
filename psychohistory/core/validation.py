@@ -1,4 +1,6 @@
 from collections import defaultdict
+from math import isfinite
+from numbers import Real
 
 
 def _collapsed_breadth(total, ancestry):
@@ -48,6 +50,9 @@ def validate_observations(obs, as_of):
         if o.observation_id in seen:
             errors.append(f"duplicate id: {o.observation_id}")
         seen.add(o.observation_id)
+        if (isinstance(o.value, bool) or not isinstance(o.value, Real)
+                or not isfinite(o.value)):
+            errors.append(f"invalid numeric value: {o.observation_id}")
         if not 0 <= o.quality <= 1:
             errors.append(f"invalid quality: {o.observation_id}")
         if o.revision_type not in {
@@ -64,7 +69,6 @@ def validate_observations(obs, as_of):
             for ancestor in o.ancestry:
                 measurement_ancestry[ancestor] += 1
 
-    ordinary = len(obs) - len(propagation)
     measurement_breadth, shared_measurement = _component_breadth(
         [o for o in obs if not o.is_propagation], lambda o: o.ancestry
     )
