@@ -27,7 +27,7 @@ def analyse_memetic_observations(observations):
     variants = Counter(o.semantic_variant for o in events if o.semantic_variant)
     lineages = defaultdict(int)
     for event in events:
-        for ancestor in event.content_ancestry or event.ancestry:
+        for ancestor in set(event.content_ancestry or event.ancestry):
             lineages[ancestor] += 1
 
     shared = {ancestor for ancestor, count in lineages.items() if count > 1}
