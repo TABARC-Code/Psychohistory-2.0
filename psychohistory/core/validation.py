@@ -53,6 +53,8 @@ def validate_observations(obs, as_of):
         if (isinstance(o.value, bool) or not isinstance(o.value, Real)
                 or not isfinite(o.value)):
             errors.append(f"invalid numeric value: {o.observation_id}")
+        if o.value != o.value or o.value in (float("inf"), -float("inf")) or isinstance(o.value, bool):
+            errors.append(f"invalid numeric value: {o.observation_id}")
         if not 0 <= o.quality <= 1:
             errors.append(f"invalid quality: {o.observation_id}")
         if o.revision_type not in {
