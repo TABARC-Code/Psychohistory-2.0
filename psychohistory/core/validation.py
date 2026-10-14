@@ -1,5 +1,6 @@
 from collections import defaultdict
 from math import isfinite
+from math import isfinite
 from numbers import Real
 
 
@@ -53,7 +54,7 @@ def validate_observations(obs, as_of):
         if (isinstance(o.value, bool) or not isinstance(o.value, Real)
                 or not isfinite(o.value)):
             errors.append(f"invalid numeric value: {o.observation_id}")
-        if o.value != o.value or o.value in (float("inf"), -float("inf")) or isinstance(o.value, bool):
+        if isinstance(o.value, bool) or not isinstance(o.value, (int, float)) or not isfinite(o.value):
             errors.append(f"invalid numeric value: {o.observation_id}")
         if not 0 <= o.quality <= 1:
             errors.append(f"invalid quality: {o.observation_id}")
