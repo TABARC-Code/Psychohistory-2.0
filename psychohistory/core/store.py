@@ -85,9 +85,12 @@ class Store:
         self.db.commit()
 
     def resolve(self, event_id, outcome, resolved_at, vintage="first_release"):
+        # Never silently turn a fractional outcome into a binary result.
+        if type(outcome) is not int or outcome not in (0, 1):
+            raise ValueError("outcome must be the integer 0 or 1")
         self.db.execute(
             "INSERT INTO outcomes VALUES(?,?,?,?)",
-            (event_id, resolved_at.isoformat(), int(outcome), vintage),
+            (event_id, resolved_at.isoformat(), outcome, vintage),
         )
         self.db.commit()
 
