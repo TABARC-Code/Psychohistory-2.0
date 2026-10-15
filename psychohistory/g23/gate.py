@@ -1,31 +1,52 @@
-"""G23 coupling admission: conservative numerical and evidence-flag checks.
+"""G23 held-out coupling diagnostic. Not an empirical admission authority.
 
-These flags remain caller assertions; provenance and independent validation
-must be checked upstream before interpreting ADMITTED as operational evidence.
+Four caller-supplied flags can screen an estimate, but cannot establish
+registration, measurement validity, source independence, or Outcome Contracts.
+The current engine has no trusted verifier for those conditions, so it must
+never return ADMITTED or mark a predictor as eligible for operational use.
 """
-from math import isfinite
+
+import math
+from numbers import Real
 
 
-def coupling_gate(*, out_of_sample_gain=None, valid_null=False,
-                  identifiable=False, multiplicity_corrected=False):
+def coupling_gate(
+    *,
+    out_of_sample_gain=None,
+    valid_null=False,
+    identifiable=False,
+    multiplicity_corrected=False,
+):
+    """Fail closed on non-finite gains and unverified predictive admission."""
     reasons = []
-    if (isinstance(out_of_sample_gain, bool)
-            or not isinstance(out_of_sample_gain, (int, float))
-            or not _finite_positive(out_of_sample_gain)):
-        reasons.append("no finite positive held-out gain")
-    for name, flag, message in (
-        ("valid_null", valid_null, "null unresolved"),
-        ("identifiable", identifiable, "weak identifiability"),
-        ("multiplicity_corrected", multiplicity_corrected, "multiplicity unresolved"),
-    ):
-        if type(flag) is not bool or not flag:
-            reasons.append(message)
-    return {"status": "ADMITTED" if not reasons else "TEST_UNRESOLVED",
-            "reasons": reasons}
-
-
-def _finite_positive(value):
+    gain = out_of_sample_gain
     try:
-        return isfinite(value) and value > 0
+        finite_positive = (
+            not isinstance(gain, bool)
+            and isinstance(gain, Real)
+            and math.isfinite(gain)
+            and gain > 0
+        )
     except (TypeError, ValueError, OverflowError):
-        return False
+        finite_positive = False
+    if not finite_positive:
+        reasons.append("no finite positive held-out gain")
+    if valid_null is not True:
+        reasons.append("null unresolved")
+    if identifiable is not True:
+        reasons.append("weak identifiability")
+    if multiplicity_corrected is not True:
+        reasons.append("multiplicity unresolved")
+    diagnostic_passed = not reasons
+    if diagnostic_passed:
+        reasons.append("independent registration, measurement, ancestry and outcome-contract evidence unverified")
+    return {
+        "status": "CANDIDATE_NOT_ADMITTED" if diagnostic_passed else "TEST_UNRESOLVED",
+        "diagnostic_passed": diagnostic_passed,
+        "predictive_input": False,
+        "evidence_independence": "UNVERIFIED",
+        "measurement_validity": "REQUIRES_EXTERNAL_PROVENANCE",
+        "registration_provenance": "UNVERIFIED",
+        "network_inference": "NOT_ESTABLISHED",
+        "reasons": reasons,
+    }
