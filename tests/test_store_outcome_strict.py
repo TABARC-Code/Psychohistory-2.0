@@ -1,11 +1,11 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import pytest
 from psychohistory.core.store import Store
 
 
 def test_outcomes_reject_coercion(tmp_path):
     store = Store(tmp_path / "outcomes.sqlite")
-    when = datetime(2026, 10, 15, tzinfo=timezone.utc)
+    when = datetime(2026, 10, 15, tzinfo=UTC)
     for invalid in (0.5, 1.5, True, False, "1", None, -1, 2):
         with pytest.raises(ValueError):
             store.resolve("example", invalid, when)
@@ -14,6 +14,6 @@ def test_outcomes_reject_coercion(tmp_path):
 
 def test_binary_integer_outcome_allowed(tmp_path):
     store = Store(tmp_path / "outcomes.sqlite")
-    when = datetime(2026, 10, 15, tzinfo=timezone.utc)
+    when = datetime(2026, 10, 15, tzinfo=UTC)
     store.resolve("example", 1, when)
     assert store.db.execute("SELECT outcome FROM outcomes").fetchone()[0] == 1
