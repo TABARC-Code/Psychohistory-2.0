@@ -32,8 +32,17 @@ def laplacian_metrics(adjacency):
                     seen[neighbour] = True
                     stack.append(int(neighbour))
 
-    L = np.diag(A.sum(axis=1)) - A
+    # Average tolerated asymmetry without losing subnormal symmetric weights.
+    A = A + 0.5 * (A.T - A)
+    with np.errstate(over="ignore", invalid="ignore"):
+        L = np.diag(A.sum(axis=1)) - A
+    if not np.all(np.isfinite(L)):
+        raise ValueError("adjacency weights overflow Laplacian construction")
     vals = np.sort(np.linalg.eigvalsh(L))
+    if not np.all(np.isfinite(vals)):
+        raise ValueError("nonfinite Laplacian eigenvalues")
+    vals = np.maximum(vals, 0.0)
+    vals[0] = 0.0
     return {
         "lambda1": float(vals[0]),
         "lambda2": float(vals[1]) if n > 1 else None,
