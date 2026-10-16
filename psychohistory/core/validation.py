@@ -37,6 +37,7 @@ def _component_breadth(observations, lineage_attribute):
 
 
 def validate_observations(obs, as_of):
+    obs = list(obs)
     errors = []
     warnings = []
     seen = set()
@@ -53,7 +54,8 @@ def validate_observations(obs, as_of):
         if (isinstance(o.value, bool) or not isinstance(o.value, Real)
                 or not isfinite(o.value)):
             errors.append(f"invalid numeric value: {o.observation_id}")
-        if not 0 <= o.quality <= 1:
+        if (isinstance(o.quality, bool) or not isinstance(o.quality, Real)
+                or not isfinite(o.quality) or not 0 <= o.quality <= 1):
             errors.append(f"invalid quality: {o.observation_id}")
         if o.revision_type not in {
             "none", "scheduled_revision", "maturation",
