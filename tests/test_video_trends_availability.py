@@ -6,9 +6,9 @@ T = datetime(2026, 10, 17, 7, 0, tzinfo=UTC)
 
 
 def row(views, observed, available=None):
-    result = dict(video_id="v1", creator_id="c1", topic="energy", format="short",
-                  published_at=T - timedelta(days=1), observed_at=observed,
-                  views=views)
+    result = {"video_id": "v1", "creator_id": "c1", "topic": "energy",
+              "format": "short", "published_at": T - timedelta(days=1),
+              "observed_at": observed, "views": views}
     if available is not None:
         result["available_at"] = available
     return result
