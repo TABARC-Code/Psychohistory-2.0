@@ -64,15 +64,23 @@ class Store:
             q += " AND series=?"
             args.append(series)
         q += " ORDER BY julianday(effective_at),julianday(available_at)"
-        return [
+        observations = [
             Observation(
                 r[0], r[1], datetime.fromisoformat(r[2]), datetime.fromisoformat(r[3]),
                 r[4], r[5], r[6], r[7], r[8], r[9], tuple(json.loads(r[10])),
                 r[11] or "measurement", tuple(json.loads(r[12] or "[]")),
                 r[13], r[14], r[15], r[16],
             )
+            # SQLite julianday() rounds sub-millisecond timestamps.
+            # Recheck exact instants before returning observations.
             for r in self.db.execute(q, args)
+            if datetime.fromisoformat(r[3]) <= as_of
         ]
+        # Preserve sub-millisecond event ordering for directional lag analysis.
+        return sorted(
+            observations,
+            key=lambda o: (o.effective_at, o.available_at, o.observation_id),
+        )
 
     def add_forecast(self, f: Forecast):
         if not 0 <= f.probability <= 1:
