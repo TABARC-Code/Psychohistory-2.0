@@ -42,7 +42,9 @@ def laplacian_metrics(adjacency):
     if not np.all(np.isfinite(vals)):
         raise ValueError("nonfinite Laplacian eigenvalues")
     vals = np.maximum(vals, 0.0)
-    vals[0] = 0.0
+    # Topology determines the exact number of zero Laplacian modes.
+    # Do not use an absolute eigenvalue threshold: it can erase weak links.
+    vals[:components] = 0.0
     return {
         "lambda1": float(vals[0]),
         "lambda2": float(vals[1]) if n > 1 else None,
