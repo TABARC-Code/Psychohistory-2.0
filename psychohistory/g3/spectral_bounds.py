@@ -23,7 +23,7 @@ def connectivity_interval(adjacency, *, max_nodes=12):
         converted = []
         for x in row:
             if isinstance(x, bool):
-                raise ValueError("Boolean weights are not allowed")
+                raise TypeError("Boolean weights are not allowed")
             try:
                 val = float(x)
             except (TypeError, ValueError, OverflowError) as exc:
