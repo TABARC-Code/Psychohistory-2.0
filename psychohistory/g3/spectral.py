@@ -1,5 +1,8 @@
 """Undirected non-negative graph Laplacian diagnostics."""
 import numpy as np
+from fractions import Fraction
+
+from .spectral_bounds import connectivity_interval
 
 
 def laplacian_metrics(adjacency):
@@ -45,9 +48,34 @@ def laplacian_metrics(adjacency):
     # Topology determines the exact number of zero Laplacian modes.
     # Do not use an absolute eigenvalue threshold: it can erase weak links.
     vals[:components] = 0.0
+    lambda2 = float(vals[1]) if n > 1 else None
+    reliability = "NOT_APPLICABLE" if n == 1 else "UNCHECKED"
+    interval = None
+    # Exact-input Rayleigh bounds are necessary checks, not certificates of
+    # numerical accuracy or real-world measurement validity.
+    if n > 1 and components > 1:
+        reliability = "EXACT_TOPOLOGICAL_ZERO"
+    elif n > 12:
+        reliability = "UNCHECKED_NODE_LIMIT"
+    elif not np.array_equal(A, A.T):
+        reliability = "UNCHECKED_SYMMETRY_ROUNDING"
+    elif n > 1:
+        bounds = connectivity_interval(A.tolist())
+        lower, upper = bounds["lower"], bounds["upper"]
+        interval = {"lower_exact": str(lower), "upper_exact": str(upper)}
+        estimate = Fraction.from_float(lambda2)
+        # Comparison slack is not a graph-connectivity threshold.
+        slack = Fraction(1, 100_000_000)
+        if estimate < lower * (1 - slack) or estimate > upper * (1 + slack):
+            lambda2 = None
+            reliability = "OUTSIDE_PROVEN_BOUNDS"
+        else:
+            reliability = "WITHIN_BOUNDS_NOT_CERTIFIED"
     return {
         "lambda1": float(vals[0]),
-        "lambda2": float(vals[1]) if n > 1 else None,
+        "lambda2": lambda2,
+        "lambda2_reliability": reliability,
+        "lambda2_exact_input_bounds": interval,
         "component_count": components,
         "fragmentation_warning": components > 1,
     }
