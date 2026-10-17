@@ -16,6 +16,9 @@ def test_rejects_truthy_nonboolean_flags():
         assert coupling_gate(out_of_sample_gain=0.1, **flags)["status"] != "ADMITTED"
 
 
-def test_valid_finite_gain_with_boolean_evidence():
-    assert coupling_gate(out_of_sample_gain=0.1, valid_null=True,
-                         identifiable=True, multiplicity_corrected=True)["status"] == "ADMITTED"
+def test_valid_finite_gain_with_boolean_evidence_remains_unverified():
+    result = coupling_gate(out_of_sample_gain=0.1, valid_null=True,
+                           identifiable=True, multiplicity_corrected=True)
+    assert result["status"] == "TEST_UNRESOLVED"
+    assert result["candidate_numerically_eligible"] is True
+    assert result["predictive_input"] is False
