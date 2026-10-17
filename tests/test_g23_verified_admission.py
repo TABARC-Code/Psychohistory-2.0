@@ -23,7 +23,7 @@ def test_invalid_numerical_claims_still_rejected():
 
 def test_truthy_nonboolean_flags_not_verified():
     for key in ('valid_null', 'identifiable', 'multiplicity_corrected'):
-        flags = dict(valid_null=True, identifiable=True, multiplicity_corrected=True)
+        flags = {'valid_null': True, 'identifiable': True, 'multiplicity_corrected': True}
         flags[key] = 'true'
         r = coupling_gate(out_of_sample_gain=0.2, **flags)
         assert r['candidate_numerically_eligible'] is False
