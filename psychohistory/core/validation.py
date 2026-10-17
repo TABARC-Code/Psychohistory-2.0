@@ -65,7 +65,7 @@ def validate_observations(obs, as_of):
 
         if o.is_propagation:
             propagation.append(o)
-            for ancestor in o.content_ancestry or o.ancestry:
+            for ancestor in o.content_ancestry:
                 content_ancestry[ancestor] += 1
         else:
             for ancestor in o.ancestry:
@@ -74,8 +74,19 @@ def validate_observations(obs, as_of):
     measurement_breadth, shared_measurement = _component_breadth(
         [o for o in obs if not o.is_propagation], lambda o: o.ancestry
     )
+    propagation_measurement_breadth, shared_propagation_measurement = _component_breadth(
+        propagation, lambda o: o.ancestry
+    )
     content_breadth, shared_content = _component_breadth(
-        propagation, lambda o: o.content_ancestry or o.ancestry
+        propagation, lambda o: o.content_ancestry
+    )
+
+    observed_content = [o for o in propagation if o.content_ancestry]
+    observed_content_breadth, _ = _component_breadth(
+        observed_content, lambda o: o.content_ancestry
+    )
+    content_coverage = (
+        len(observed_content) / len(propagation) if propagation else 0.0
     )
 
     carriers = {o.carrier for o in propagation if o.carrier}
@@ -90,7 +101,12 @@ def validate_observations(obs, as_of):
         "shared_measurement_ancestry": shared_measurement,
         "measurement_informational_breadth_upper_bound": measurement_breadth,
         "shared_content_ancestry": shared_content,
+        "shared_propagation_measurement_ancestry": shared_propagation_measurement,
+        "propagation_measurement_breadth_upper_bound": propagation_measurement_breadth,
         "content_origin_breadth_upper_bound": content_breadth,
+        "content_origin_observed_components": observed_content_breadth,
+        "content_ancestry_coverage_fraction": content_coverage,
+        "content_ancestry_unknown_events": len(propagation) - len(observed_content),
         "propagation_event_count": len(propagation),
         "carrier_breadth": len(carriers),
         "actor_breadth": len(actors),
