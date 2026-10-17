@@ -15,16 +15,36 @@ def fit_ou(times, values):
         return {"status": "UNRESOLVED", "reason": "need >=4 observations"}
     if not np.all(np.isfinite(t)) or not np.all(np.isfinite(x)):
         return {"status": "UNRESOLVED", "reason": "nonfinite observations"}
-    dt = np.diff(t)
-    if np.any(dt <= 0):
+    with np.errstate(over="ignore", invalid="ignore"):
+        dt = np.diff(t)
+    if not np.all(np.isfinite(dt)) or np.any(dt <= 0):
         return {"status": "UNRESOLVED", "reason": "timestamps must be strictly increasing"}
-    if np.ptp(x) <= 1e-10 * max(1.0, float(np.max(np.abs(x)))):
-        return {"status": "UNRESOLVED", "reason": "near-constant series: parameters unidentifiable"}
-    prev, nxt = x[:-1], x[1:]
+    # Absolute series levels must not change OU identifiability: the OU
+    # likelihood is translation-equivariant. Reject only spreads that are
+    # indistinguishable from floating-point rounding at the observed level.
+    with np.errstate(over="ignore", invalid="ignore"):
+        spread = float(np.ptp(x))
+        precision = float(np.spacing(np.max(np.abs(x))))
+        centred = x - x[0]
+    if (not np.isfinite(spread) or not np.all(np.isfinite(centred))
+            or spread <= 32 * precision):
+        return {"status": "UNRESOLVED", "reason": "near-constant or unrepresentable series"}
+    # Fit in dimensionless time to avoid unit-dependent optimiser bounds.
+    # For u=(t-t0)/span, a_u=a_t*span and sigma_u=sigma_t*sqrt(span).
+    with np.errstate(over="ignore", invalid="ignore"):
+        span = float(t[-1] - t[0])
+    if not np.isfinite(span) or span <= 0:
+        return {"status": "UNRESOLVED", "reason": "invalid time span"}
+    dt = dt / span
+    if not np.all(np.isfinite(dt)) or np.any(dt <= 0):
+        return {"status": "UNRESOLVED", "reason": "unresolvable time spacing"}
+    prev, nxt = centred[:-1], centred[1:]
 
     def nll(z):
         with np.errstate(over="ignore", under="ignore", divide="ignore", invalid="ignore"):
-            a = np.exp(z[0]); mu = z[1]; sigma = np.exp(z[2])
+            a = np.exp(z[0])
+            mu = z[1]
+            sigma = np.exp(z[2])
             decay = np.exp(-a * dt)
             mean = mu + (prev - mu) * decay
             variance = sigma**2 * (-np.expm1(-2 * a * dt)) / (2 * a)
@@ -33,13 +53,32 @@ def fit_ou(times, values):
             value = 0.5 * np.sum(np.log(2 * np.pi * variance) + (nxt - mean)**2 / variance)
             return float(value) if np.isfinite(value) else np.inf
 
-    initial = [np.log(0.1), float(np.mean(x)), np.log(max(float(np.std(x)), 1e-6))]
-    result = minimize(nll, initial, method="L-BFGS-B",
-                      bounds=[(-15, 15), (None, None), (-20, 20)])
+    # The likelihood can have shallow local optima. Compare finite converged
+    # fits from a small fixed multi-start grid rather than trusting one start.
+    mu_start = float(np.mean(centred))
+    sigma_start = np.log(max(float(np.std(centred)), 1e-6))
+    candidates = [
+        minimize(nll, [np.log(rate), mu_start, sigma_start],
+                 method="L-BFGS-B", bounds=[(-15, 15), (None, None), (-20, 20)])
+        for rate in (0.1, 1.0, 10.0, 100.0)
+    ]
+    finite = [r for r in candidates if r.success and np.isfinite(r.fun)]
+    if not finite:
+        return {"status": "UNRESOLVED", "reason": "optimizer did not find a finite solution"}
+    result = min(finite, key=lambda r: r.fun)
     if not result.success or not np.isfinite(result.fun):
         return {"status": "UNRESOLVED", "reason": "optimizer did not find a finite solution"}
-    a, mu, sigma = np.exp(result.x[0]), result.x[1], np.exp(result.x[2])
+    a_u, mu_centred, sigma_u = np.exp(result.x[0]), result.x[1], np.exp(result.x[2])
+    mu = mu_centred + x[0]
+    a = a_u / span
+    sigma = sigma_u / np.sqrt(span)
+    if not np.all(np.isfinite([a, mu, sigma])) or a <= 0 or sigma <= 0:
+        return {"status": "UNRESOLVED", "reason": "invalid physical parameter scaling"}
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        recovery_time = float(np.divide(1.0, a))
+    if not np.isfinite(recovery_time) or recovery_time <= 0:
+        return {"status": "UNRESOLVED", "reason": "nonfinite recovery time"}
     return {"status": "VALID", "a": float(a), "mu": float(mu),
-            "sigma": float(sigma), "recovery_time": float(1 / a),
+            "sigma": float(sigma), "recovery_time": recovery_time,
             "log_likelihood": float(-result.fun),
-            "boundary_warning": bool(a < 1e-4 or np.isclose(result.x[0], -15) or np.isclose(result.x[0], 15))}
+            "boundary_warning": bool(a_u < 1e-4 or np.isclose(result.x[0], -15) or np.isclose(result.x[0], 15))}
