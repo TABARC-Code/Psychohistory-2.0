@@ -8,8 +8,30 @@ import numpy as np
 from scipy.optimize import minimize
 
 
+def _log_likelihood_unit_window(u, mu, alpha, beta):
+    """Exact finite-window exponential Hawkes log likelihood, O(n) in events.
+
+    Events must be strictly ordered in [0, 1]. With no pre-window history,
+    S_i = exp(-beta * (u_i - u_{i-1})) * (1 + S_{i-1}), S_0 = 0.
+    The compensator includes the right-censoring term for every event.
+    """
+    previous = None
+    history = 0.0
+    log_intensity = 0.0
+    for time in u:
+        if previous is not None:
+            history = np.exp(-beta * (time - previous)) * (1.0 + history)
+        intensity = mu + alpha * history
+        if not np.isfinite(intensity) or intensity <= 0:
+            return -np.inf
+        log_intensity += np.log(intensity)
+        previous = time
+    compensator = mu + (alpha / beta) * np.sum(-np.expm1(-beta * (1.0 - u)))
+    return float(log_intensity - compensator)
+
+
 def fit_exponential_hawkes(events, T):
-    """Fit a stationary exponential Hawkes process on [0, T]."""
+    """Fit a zero-prehistory exponential Hawkes diagnostic on [0, T]."""
     try:
         e = np.asarray(events, dtype=float)
         T = float(T)
@@ -40,12 +62,7 @@ def fit_exponential_hawkes(events, T):
             branching = alpha / beta
             if not np.isfinite(branching) or branching >= 0.999 or branching < 0:
                 return np.inf
-            intensity = np.array([
-                mu + alpha * np.exp(-beta * (ti - u[:i])).sum()
-                for i, ti in enumerate(u)
-            ])
-            ll = (np.log(intensity).sum() - mu
-                  - branching * np.sum(-np.expm1(-beta * (1 - u))))
+            ll = _log_likelihood_unit_window(u, mu, alpha, beta)
             return float(-ll) if np.isfinite(ll) else np.inf
 
     # Multi-start reduces, but cannot eliminate, local-optimum sensitivity.
