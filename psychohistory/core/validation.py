@@ -68,6 +68,9 @@ def validate_observations(obs, as_of):
         if (isinstance(o.quality, bool) or not isinstance(o.quality, Real)
                 or not isfinite(o.quality) or not 0 <= o.quality <= 1):
             errors.append(f"invalid quality: {o.observation_id}")
+        if (type(o.evidence_role) is not str or
+                o.evidence_role not in ("measurement", "propagation")):
+            errors.append(f"invalid evidence role: {o.observation_id}")
         if o.revision_type not in {
             "none", "scheduled_revision", "maturation",
             "methodological_revision", "correction"
