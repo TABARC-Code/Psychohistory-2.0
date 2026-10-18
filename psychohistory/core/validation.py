@@ -89,6 +89,41 @@ def validate_observations(obs, as_of):
         len(observed_content) / len(propagation) if propagation else 0.0
     )
 
+    # A shared measurement ancestor can affect both a shock observation and
+    # a propagation observation; it is not evidence of content transmission.
+    ordinary = [o for o in obs if not o.is_propagation]
+    ordinary_sources = defaultdict(int)
+    propagation_sources = defaultdict(int)
+    for event in ordinary:
+        for ancestor in set(event.ancestry):
+            ordinary_sources[ancestor] += 1
+    for event in propagation:
+        for ancestor in set(event.ancestry):
+            propagation_sources[ancestor] += 1
+    cross_role_shared = {
+        ancestor: {
+            "measurement_events": ordinary_sources[ancestor],
+            "propagation_events": propagation_sources[ancestor],
+        }
+        for ancestor in sorted(ordinary_sources.keys() & propagation_sources.keys())
+    }
+    ordinary_coverage = (
+        sum(bool(o.ancestry) for o in ordinary) / len(ordinary)
+        if ordinary else 0.0
+    )
+    propagation_coverage = (
+        sum(bool(o.ancestry) for o in propagation) / len(propagation)
+        if propagation else 0.0
+    )
+    if cross_role_shared:
+        cross_role_status = "OBSERVED_SHARED"
+    elif not ordinary or not propagation:
+        cross_role_status = "NOT_APPLICABLE"
+    elif ordinary_coverage < 1 or propagation_coverage < 1:
+        cross_role_status = "PARTIAL_UNMEASURED"
+    else:
+        cross_role_status = "NO_SHARED_OBSERVED"
+
     carriers = {o.carrier for o in propagation if o.carrier}
     actors = {o.actor_id for o in propagation if o.actor_id}
     communities = {o.community_id for o in propagation if o.community_id}
@@ -99,6 +134,10 @@ def validate_observations(obs, as_of):
         "errors": errors,
         "warnings": warnings,
         "shared_measurement_ancestry": shared_measurement,
+        "shared_cross_role_measurement_ancestry": cross_role_shared,
+        "cross_role_measurement_ancestry_status": cross_role_status,
+        "measurement_ancestry_coverage_fraction": ordinary_coverage,
+        "propagation_measurement_ancestry_coverage_fraction": propagation_coverage,
         "measurement_informational_breadth_upper_bound": measurement_breadth,
         "shared_content_ancestry": shared_content,
         "shared_propagation_measurement_ancestry": shared_propagation_measurement,

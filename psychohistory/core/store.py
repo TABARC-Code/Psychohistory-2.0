@@ -103,8 +103,9 @@ class Store:
         self.db.commit()
 
     def scored(self):
-        return list(self.db.execute(
-            "SELECT f.forecast_id,f.probability,f.baseline_probability,o.outcome "
-            "FROM forecasts f JOIN outcomes o ON f.event_id=o.event_id "
-            "WHERE o.resolved_at>=f.horizon_end"
-        ))
+        """Fail closed until registrations and outcome contracts are verified.
+
+        Database rows alone cannot authenticate forecast registration or the
+        contract-specified outcome vintage and point-in-time availability.
+        """
+        return []

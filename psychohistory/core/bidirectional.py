@@ -53,14 +53,17 @@ def reciprocal_view(hypotheses):
             "source": h.source,
             "target": h.target,
             "lag_days": h.lag_days,
-            "admitted": h.admitted,
+            "admitted": False,
+            "admission_claimed_unverified": h.admitted,
+            "admission_status": "UNVERIFIED",
             "lag_family_size": families[(h.source, h.target)],
             "reverse_present": (h.target, h.source) in families,
             "reverse_lags": sorted(
                 lag for (src, dst, lag) in edges
                 if src == h.target and dst == h.source
             ),
-            "reverse_admitted": any(
+            "reverse_admitted": False,
+            "reverse_admission_claimed_unverified": any(
                 other.admitted for (src, dst, _), other in edges.items()
                 if src == h.target and dst == h.source
             ),
