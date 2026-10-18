@@ -3,6 +3,17 @@ from math import isfinite
 from numbers import Real
 
 
+def _valid_ancestry(value):
+    """Require a list or tuple of non-blank source identifiers."""
+    return (isinstance(value, (tuple, list))
+            and all(isinstance(token, str) and bool(token.strip())
+                    for token in value))
+
+
+def _safe_ancestry(value):
+    return tuple(value) if _valid_ancestry(value) else ()
+
+
 def _collapsed_breadth(total, ancestry):
     """Legacy count-only estimate; not suitable for overlapping ancestry sets."""
     dependent = {k: v for k, v in ancestry.items() if v > 1}
@@ -62,28 +73,32 @@ def validate_observations(obs, as_of):
             "methodological_revision", "correction"
         }:
             warnings.append(f"unknown revision type: {o.observation_id}")
+        if not _valid_ancestry(o.ancestry):
+            errors.append(f"invalid measurement ancestry: {o.observation_id}")
+        if not _valid_ancestry(o.content_ancestry):
+            errors.append(f"invalid content ancestry: {o.observation_id}")
 
         if o.is_propagation:
             propagation.append(o)
-            for ancestor in o.content_ancestry:
+            for ancestor in _safe_ancestry(o.content_ancestry):
                 content_ancestry[ancestor] += 1
         else:
-            for ancestor in o.ancestry:
+            for ancestor in _safe_ancestry(o.ancestry):
                 measurement_ancestry[ancestor] += 1
 
     measurement_breadth, shared_measurement = _component_breadth(
-        [o for o in obs if not o.is_propagation], lambda o: o.ancestry
+        [o for o in obs if not o.is_propagation], lambda o: _safe_ancestry(o.ancestry)
     )
     propagation_measurement_breadth, shared_propagation_measurement = _component_breadth(
-        propagation, lambda o: o.ancestry
+        propagation, lambda o: _safe_ancestry(o.ancestry)
     )
     content_breadth, shared_content = _component_breadth(
-        propagation, lambda o: o.content_ancestry
+        propagation, lambda o: _safe_ancestry(o.content_ancestry)
     )
 
-    observed_content = [o for o in propagation if o.content_ancestry]
+    observed_content = [o for o in propagation if _safe_ancestry(o.content_ancestry)]
     observed_content_breadth, _ = _component_breadth(
-        observed_content, lambda o: o.content_ancestry
+        observed_content, lambda o: _safe_ancestry(o.content_ancestry)
     )
     content_coverage = (
         len(observed_content) / len(propagation) if propagation else 0.0
@@ -95,10 +110,10 @@ def validate_observations(obs, as_of):
     ordinary_sources = defaultdict(int)
     propagation_sources = defaultdict(int)
     for event in ordinary:
-        for ancestor in set(event.ancestry):
+        for ancestor in set(_safe_ancestry(event.ancestry)):
             ordinary_sources[ancestor] += 1
     for event in propagation:
-        for ancestor in set(event.ancestry):
+        for ancestor in set(_safe_ancestry(event.ancestry)):
             propagation_sources[ancestor] += 1
     cross_role_shared = {
         ancestor: {
@@ -108,11 +123,11 @@ def validate_observations(obs, as_of):
         for ancestor in sorted(ordinary_sources.keys() & propagation_sources.keys())
     }
     ordinary_coverage = (
-        sum(bool(o.ancestry) for o in ordinary) / len(ordinary)
+        sum(bool(_safe_ancestry(o.ancestry)) for o in ordinary) / len(ordinary)
         if ordinary else 0.0
     )
     propagation_coverage = (
-        sum(bool(o.ancestry) for o in propagation) / len(propagation)
+        sum(bool(_safe_ancestry(o.ancestry)) for o in propagation) / len(propagation)
         if propagation else 0.0
     )
     if cross_role_shared:
