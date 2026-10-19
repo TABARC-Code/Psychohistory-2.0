@@ -7,7 +7,7 @@ def fit_ou(times, values):
     try:
         t = np.asarray(times, dtype=float)
         x = np.asarray(values, dtype=float)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return {"status": "UNRESOLVED", "reason": "invalid numeric input"}
     if t.ndim != 1 or x.ndim != 1 or len(t) != len(x):
         return {"status": "UNRESOLVED", "reason": "time/value dimension mismatch"}
@@ -25,7 +25,7 @@ def fit_ou(times, values):
     with np.errstate(over="ignore", invalid="ignore"):
         spread = float(np.ptp(x))
         precision = float(np.spacing(np.max(np.abs(x))))
-        centred = x - x[0]
+        centred = (x - x[0]) / spread if spread > 0 else x - x[0]
     if (not np.isfinite(spread) or not np.all(np.isfinite(centred))
             or spread <= 32 * precision):
         return {"status": "UNRESOLVED", "reason": "near-constant or unrepresentable series"}
@@ -69,10 +69,13 @@ def fit_ou(times, values):
     if not result.success or not np.isfinite(result.fun):
         return {"status": "UNRESOLVED", "reason": "optimizer did not find a finite solution"}
     a_u, mu_centred, sigma_u = np.exp(result.x[0]), result.x[1], np.exp(result.x[2])
-    mu = mu_centred + x[0]
-    a = a_u / span
-    sigma = sigma_u / np.sqrt(span)
-    if not np.all(np.isfinite([a, mu, sigma])) or a <= 0 or sigma <= 0:
+    # Undo value and time normalisation; correct conditional-density Jacobian.
+    with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
+        mu = mu_centred * spread + x[0]
+        a = a_u / span
+        sigma = sigma_u * spread / np.sqrt(span)
+        log_likelihood = -result.fun - (len(x) - 1) * np.log(spread)
+    if not np.all(np.isfinite([a, mu, sigma, log_likelihood])) or a <= 0 or sigma <= 0:
         return {"status": "UNRESOLVED", "reason": "invalid physical parameter scaling"}
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         recovery_time = float(np.divide(1.0, a))
@@ -80,5 +83,5 @@ def fit_ou(times, values):
         return {"status": "UNRESOLVED", "reason": "nonfinite recovery time"}
     return {"status": "VALID", "a": float(a), "mu": float(mu),
             "sigma": float(sigma), "recovery_time": recovery_time,
-            "log_likelihood": float(-result.fun),
+            "log_likelihood": float(log_likelihood),
             "boundary_warning": bool(a_u < 1e-4 or np.isclose(result.x[0], -15) or np.isclose(result.x[0], 15))}
