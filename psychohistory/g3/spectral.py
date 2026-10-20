@@ -35,6 +35,8 @@ def laplacian_metrics(adjacency):
                     seen[neighbour] = True
                     stack.append(int(neighbour))
 
+    # Preserve exact symmetry before averaging approximately symmetric measurements.
+    original_exact_symmetry = np.array_equal(A, A.T)
     # Average tolerated asymmetry without losing subnormal symmetric weights.
     A = A + 0.5 * (A.T - A)
     with np.errstate(over="ignore", invalid="ignore"):
@@ -57,7 +59,7 @@ def laplacian_metrics(adjacency):
         reliability = "EXACT_TOPOLOGICAL_ZERO"
     elif n > 12:
         reliability = "UNCHECKED_NODE_LIMIT"
-    elif not np.array_equal(A, A.T):
+    elif not original_exact_symmetry:
         reliability = "UNCHECKED_SYMMETRY_ROUNDING"
     elif n > 1:
         bounds = connectivity_interval(A.tolist())
