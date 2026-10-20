@@ -3,6 +3,16 @@ from math import isfinite
 from numbers import Real
 
 
+def _finite_real(value):
+    """Check representable finite real values without leaking overflow."""
+    if isinstance(value, bool) or not isinstance(value, Real):
+        return False
+    try:
+        return bool(isfinite(value))
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
 def _valid_ancestry(value):
     """Require a list or tuple of non-blank source identifiers."""
     return (isinstance(value, (tuple, list))
@@ -62,11 +72,9 @@ def validate_observations(obs, as_of):
         if o.observation_id in seen:
             errors.append(f"duplicate id: {o.observation_id}")
         seen.add(o.observation_id)
-        if (isinstance(o.value, bool) or not isinstance(o.value, Real)
-                or not isfinite(o.value)):
+        if not _finite_real(o.value):
             errors.append(f"invalid numeric value: {o.observation_id}")
-        if (isinstance(o.quality, bool) or not isinstance(o.quality, Real)
-                or not isfinite(o.quality) or not 0 <= o.quality <= 1):
+        if not _finite_real(o.quality) or not 0 <= o.quality <= 1:
             errors.append(f"invalid quality: {o.observation_id}")
         if hasattr(o, "evidence_role") and (
                 type(o.evidence_role) is not str or
