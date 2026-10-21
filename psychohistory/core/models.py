@@ -1,5 +1,5 @@
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -24,7 +24,14 @@ class Observation:
     semantic_variant: str | None = None
 
     def visible(self, as_of: datetime) -> bool:
-        return self.available_at <= as_of
+        """Return point-in-time visibility using absolute UTC instants."""
+        available = self.available_at
+        if (not isinstance(available, datetime)
+                or available.tzinfo is None or available.utcoffset() is None
+                or not isinstance(as_of, datetime)
+                or as_of.tzinfo is None or as_of.utcoffset() is None):
+            raise ValueError("visibility requires timezone-aware datetimes")
+        return available.astimezone(UTC) <= as_of.astimezone(UTC)
 
     @property
     def is_propagation(self) -> bool:
