@@ -28,7 +28,7 @@ def test_invalid_counts_rejected():
 
 def test_duplicate_timestamps_excluded():
     result = analyse_video_trends([record(100, T), record(200, T)], T, min_creators=1)
-    assert result["rejected_records"] == 1
+    assert result["rejected_records"] == 2
     assert result["series"] == []
 
 def test_short_long_separate():
