@@ -78,7 +78,8 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             validated.append((observed, views, record))
         except (KeyError, TypeError, ValueError, OverflowError):
             rejected += 1
-    rejected += len(conflicting_videos)
+    rejected += sum(1 for _, _, record in validated
+                    if record["video_id"] in conflicting_videos)
     for observed, views, record in validated:
         if record["video_id"] not in conflicting_videos:
             grouped[(record["topic"], record["format"], record["video_id"])].append(
@@ -97,7 +98,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         snapshots.sort(key=lambda x: x[0])
         # A timestamp collision is ambiguous; exclude it from velocity estimation.
         if len({s[0] for s in snapshots}) != len(snapshots):
-            rejected += 1
+            rejected += len(snapshots)
             continue
         # Views are cumulative over the visible history. A later recovery
         # does not repair an earlier count rollback. Exclude the whole video
