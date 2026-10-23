@@ -12,6 +12,55 @@ ATTRIBUTION_HYPOTHESES = (
 )
 
 
+def _possible_cross_community_overlap_upper(events):
+    """Bound overlap by events with at least one feasible cross-community peer.
+
+    An unknown ancestry can share a root with another event. Two known,
+    disjoint ancestries cannot. Unknown community labels may differ from
+    any observed label. This is a necessary-pair bound, not a claim that
+    all potential pairings jointly occurred or establish transmission.
+    """
+    community_counts = Counter(event.community_id for event in events)
+    unknown_ancestry_communities = Counter(
+        event.community_id for event in events if not event.content_ancestry
+    )
+    unknown_ancestry_total = sum(unknown_ancestry_communities.values())
+    root_communities = defaultdict(Counter)
+    root_totals = Counter()
+    for event in events:
+        for root in set(event.content_ancestry):
+            root_communities[root][event.community_id] += 1
+            root_totals[root] += 1
+
+    possible = 0
+    for event in events:
+        community = event.community_id
+        if not event.content_ancestry:
+            # The event can adopt any root, but still needs a different
+            # possible community somewhere else in the observed population.
+            has_peer = (
+                len(events) > 1 if not community
+                else len(events) > community_counts[community]
+            )
+        else:
+            # A missing-ancestry peer could adopt one of this event's roots.
+            has_peer = (
+                unknown_ancestry_total > 0 if not community
+                else unknown_ancestry_total > unknown_ancestry_communities[community]
+            )
+            if not has_peer:
+                for root in set(event.content_ancestry):
+                    members = root_communities[root]
+                    # Exclude known peers in the same community. Unknown
+                    # labels can always be assigned to a distinct community.
+                    if (root_totals[root] > 1 if not community
+                            else root_totals[root] > members[community]):
+                        has_peer = True
+                        break
+        possible += bool(has_peer)
+    return possible / len(events)
+
+
 def analyse_memetic_observations(observations):
     events = [o for o in observations if o.is_propagation]
     if not events:
@@ -106,8 +155,12 @@ def analyse_memetic_observations(observations):
             for event in events
         ) / len(events)
     else:
-        # Missing content ancestry may still conceal arbitrary shared roots.
-        cross_community_overlap_upper = 1.0
+        # Missing roots can be assigned freely, but a known-root event
+        # cannot overlap a disjoint known root without a feasible peer in
+        # a different community. Preserve a conservative upper bound.
+        cross_community_overlap_upper = _possible_cross_community_overlap_upper(
+            events
+        )
     carrier_breadth = len(carriers)
 
     # These are behavioural diagnostics, not measurements of endorsement or
