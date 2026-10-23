@@ -7,6 +7,8 @@ transmission. This model assumes no observed pre-window history.
 import numpy as np
 from scipy.optimize import minimize
 
+from .numeric_precision import exact_binary64_real
+
 
 def _log_likelihood_unit_window(u, mu, alpha, beta):
     """Exact finite-window exponential Hawkes log likelihood, O(n) in events.
@@ -33,18 +35,27 @@ def _log_likelihood_unit_window(u, mu, alpha, beta):
 def fit_exponential_hawkes(events, T):
     """Fit a zero-prehistory exponential Hawkes diagnostic on [0, T)."""
     try:
-        # Complex event times are not real observations. NumPy can silently
-        # discard imaginary components when casting an existing complex array.
-        raw = np.asarray(events)
-        if (np.iscomplexobj(T) or np.iscomplexobj(raw)
-                or (raw.dtype == object
-                    and any(np.iscomplexobj(value) for value in raw.flat))):
+        # Validate original scalar types before NumPy's array promotion.
+        # Extended-precision values may otherwise round across [0,T) or
+        # collapse two distinct timestamps into the same binary64 value.
+        if np.iscomplexobj(T):
             return {"status": "UNRESOLVED", "reason": "complex event times or window",
                     "predictive_input": False}
-        e = np.asarray(events, dtype=float)
+        if not exact_binary64_real(T):
+            return {"status": "UNRESOLVED", "reason": "invalid window type or precision loss",
+                    "predictive_input": False}
+        raw = np.asarray(events, dtype=object)
+        if np.iscomplexobj(events) or any(np.iscomplexobj(v) for v in raw.flat):
+            return {"status": "UNRESOLVED", "reason": "complex event times or window",
+                    "predictive_input": False}
+        if raw.ndim != 1 or any(not exact_binary64_real(v) for v in raw):
+            return {"status": "UNRESOLVED", "reason": "invalid event type or precision loss",
+                    "predictive_input": False}
+        e = np.asarray(raw, dtype=float)
         T = float(T)
     except (TypeError, ValueError, OverflowError):
-        return {"status": "UNRESOLVED", "reason": "invalid numeric input"}
+        return {"status": "UNRESOLVED", "reason": "invalid numeric input",
+                "predictive_input": False}
     if e.ndim != 1 or not np.isfinite(T) or T <= 0 or not np.all(np.isfinite(e)):
         return {"status": "UNRESOLVED", "reason": "invalid event array or observation window"}
     if np.any(e < 0) or np.any(e >= T):
