@@ -78,7 +78,18 @@ def analyse_memetic_observations(observations):
     complete_joint_metadata = all(
         event.community_id and event.content_ancestry for event in events
     )
+    # When every community label is known and all events belong to one
+    # community, missing content ancestry cannot conceal cross-community
+    # overlap. A universal upper bound of one would be mathematically loose.
+    single_known_community = (
+        missing_communities == 0 and cross_community_breadth <= 1
+    )
     cross_community_overlap_lower = cross_community_overlap_events / len(events)
+    cross_community_overlap_upper = (
+        cross_community_overlap_lower
+        if complete_joint_metadata or len(events) == 1 or single_known_community
+        else 1.0
+    )
     carrier_breadth = len(carriers)
 
     # These are behavioural diagnostics, not measurements of endorsement or
@@ -109,8 +120,7 @@ def analyse_memetic_observations(observations):
             cross_community_overlap_lower
         ),
         "cross_community_lineage_overlap_event_fraction_upper_bound": (
-            cross_community_overlap_lower if complete_joint_metadata or len(events) == 1
-            else 1.0
+            cross_community_overlap_upper
         ),
         "cross_community_lineage_overlap_status": (
             "MEASURED" if complete_joint_metadata else
