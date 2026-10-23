@@ -5,6 +5,17 @@ from scipy.optimize import minimize
 def fit_ou(times, values):
     """Fit an OU transition model, refusing invalid or unidentifiable inputs."""
     try:
+        raw_t = np.asarray(times)
+        raw_x = np.asarray(values)
+        # Casting complex arrays to float can silently discard the imaginary
+        # component, changing measured time and state histories.
+        if any(
+            np.iscomplexobj(raw)
+            or (raw.dtype == object
+                and any(np.iscomplexobj(value) for value in raw.flat))
+            for raw in (raw_t, raw_x)
+        ):
+            return {"status": "UNRESOLVED", "reason": "complex time or value measurements"}
         t = np.asarray(times, dtype=float)
         x = np.asarray(values, dtype=float)
     except (TypeError, ValueError, OverflowError):
