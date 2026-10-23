@@ -5,6 +5,7 @@ Every output is a non-admitted candidate until independently validated.
 """
 from collections import defaultdict
 from datetime import UTC, datetime
+from itertools import pairwise
 from math import isfinite, log1p
 
 
@@ -90,7 +91,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         ]
         exposure_rollback = any(
             later < earlier or not isfinite(later - earlier)
-            for earlier, later in zip(exposure_history, exposure_history[1:])
+            for earlier, later in pairwise(exposure_history)
         )
         last = snapshots[-1][2]
         key = (topic, fmt)
