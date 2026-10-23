@@ -27,6 +27,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
     grouped = defaultdict(list)
     validated = []
     identities = {}
+    stable_metadata = {}
     conflicting_videos = set()
     rejected = 0
     for record in observations:
@@ -53,6 +54,12 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 raise ValueError("invalid format")
             if not all(isinstance(record[k], str) and record[k] for k in ("video_id", "creator_id", "topic")):
                 raise ValueError("invalid identifiers")
+            # Optional labels identify content ancestry and community breadth.
+            # They must remain stable for a video across snapshots.
+            for field in ("community_id", "lineage_id"):
+                if (record.get(field) is not None
+                        and not isinstance(record[field], str)):
+                    raise ValueError("invalid optional identifier")
             identity = (record["creator_id"], record["topic"],
                         record["format"], published)
             video_id = record["video_id"]
@@ -60,6 +67,14 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 conflicting_videos.add(video_id)
             else:
                 identities[video_id] = identity
+            labels = stable_metadata.setdefault(video_id, {})
+            for field in ("community_id", "lineage_id"):
+                value = record.get(field)
+                if value:
+                    if field in labels and labels[field] != value:
+                        conflicting_videos.add(video_id)
+                    else:
+                        labels[field] = value
             validated.append((observed, views, record))
         except (KeyError, TypeError, ValueError, OverflowError):
             rejected += 1
@@ -128,10 +143,12 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             for snapshot in snapshots
         )
         entry["creator_ids"].add(last["creator_id"])
-        if last.get("community_id"):
-            entry["community_ids"].add(last["community_id"])
-        if last.get("lineage_id"):
-            entry["lineage_ids"].add(last["lineage_id"])
+        # Missing labels in a later snapshot do not erase known ancestry.
+        labels = stable_metadata[last["video_id"]]
+        if labels.get("community_id"):
+            entry["community_ids"].add(labels["community_id"])
+        if labels.get("lineage_id"):
+            entry["lineage_ids"].add(labels["lineage_id"])
         if len(snapshots) >= 2:
             before, after = snapshots[-2:]
             delta = after[1] - before[1]
