@@ -20,8 +20,9 @@ def test_complex_numpy_timestamps_are_not_silently_projected_to_real():
 
 
 def test_complex_object_values_are_rejected():
-    result = fit_ou(_TIMES, np.array(list(_VALUES) + [0.2 + 1j], dtype=object))
+    result = fit_ou(_TIMES, np.array([complex(float(value), 1.0) for value in _VALUES], dtype=object))
     assert result["status"] == "UNRESOLVED"
+    assert "complex" in result["reason"]
 
 
 def test_real_series_remains_eligible_for_fitting():
