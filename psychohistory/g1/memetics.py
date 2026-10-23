@@ -26,9 +26,11 @@ def _possible_cross_community_overlap_upper(events):
     )
     unknown_ancestry_total = sum(unknown_ancestry_communities.values())
     root_communities = defaultdict(Counter)
+    root_totals = Counter()
     for event in events:
         for root in set(event.content_ancestry):
             root_communities[root][event.community_id] += 1
+            root_totals[root] += 1
 
     possible = 0
     for event in events:
@@ -51,8 +53,8 @@ def _possible_cross_community_overlap_upper(events):
                     members = root_communities[root]
                     # Exclude known peers in the same community. Unknown
                     # labels can always be assigned to a distinct community.
-                    if (sum(members.values()) > 1 if not community
-                            else sum(members.values()) > members[community]):
+                    if (root_totals[root] > 1 if not community
+                            else root_totals[root] > members[community]):
                         has_peer = True
                         break
         possible += bool(has_peer)
