@@ -57,6 +57,11 @@ def laplacian_metrics(adjacency):
     # numerical accuracy or real-world measurement validity.
     if n > 1 and components > 1:
         reliability = "EXACT_TOPOLOGICAL_ZERO"
+    elif n > 1 and lambda2 == 0.0:
+        # Connected topology and numerical eigenvalue underflow are different.
+        # Withhold an unresolved magnitude rather than report disconnection.
+        lambda2 = None
+        reliability = "UNRESOLVED_NUMERICAL_ZERO"
     elif n > 12:
         reliability = "UNCHECKED_NODE_LIMIT"
     elif not original_exact_symmetry:
