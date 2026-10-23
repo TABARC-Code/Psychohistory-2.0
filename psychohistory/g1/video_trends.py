@@ -46,7 +46,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             exposure = record.get("exposure")
             if isinstance(views, bool) or not isinstance(views, (int, float)) or not isfinite(views) or views < 0:
                 raise ValueError("invalid views")
-            if exposure is not None and (isinstance(exposure, bool) or not isinstance(exposure, (int, float)) or not isfinite(exposure) or exposure <= 0):
+            if exposure is not None and (isinstance(exposure, bool) or not isinstance(exposure, (int, float)) or not isfinite(exposure) or exposure < 0):
                 raise ValueError("invalid exposure")
             if record["format"] not in ("short", "long"):
                 raise ValueError("invalid format")
@@ -73,16 +73,30 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         "videos": 0, "view_delta": 0.0, "hours": 0.0,
         "exposure_view_delta": 0.0, "exposure_delta": 0.0,
         "exposure_pairs": 0, "paired": 0,
-        "snapshots": 0, "available_snapshots": 0})
+        "snapshots": 0, "available_snapshots": 0,
+        "exposure_snapshots": 0, "exposure_rollback_video_count": 0})
     for (topic, fmt, _), snapshots in grouped.items():
         snapshots.sort(key=lambda x: x[0])
         # A timestamp collision is ambiguous; exclude it from velocity estimation.
         if len({s[0] for s in snapshots}) != len(snapshots):
             rejected += 1
             continue
+        # Counts are cumulative over the entire visible history. An earlier
+        # rollback is not repaired by an increase in the final pair. Compare
+        # consecutive known measurements even across missing snapshots.
+        exposure_history = [
+            snapshot[2]["exposure"] for snapshot in snapshots
+            if snapshot[2].get("exposure") is not None
+        ]
+        exposure_rollback = any(
+            later < earlier or not isfinite(later - earlier)
+            for earlier, later in zip(exposure_history, exposure_history[1:])
+        )
         last = snapshots[-1][2]
         key = (topic, fmt)
         entry = topics[key]
+        entry["exposure_snapshots"] += len(exposure_history)
+        entry["exposure_rollback_video_count"] += int(exposure_rollback)
         entry["videos"] += 1
         entry["snapshots"] += len(snapshots)
         entry["available_snapshots"] += sum(
@@ -106,7 +120,8 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             entry["paired"] += 1
             entry["paired_creator_ids"].add(last["creator_id"])
             e0, e1 = before[2].get("exposure"), after[2].get("exposure")
-            if e0 is not None and e1 is not None and e1 > e0:
+            if (not exposure_rollback and e0 is not None and e1 is not None
+                    and e1 > e0):
                 exposure_delta = e1 - e0
                 if isfinite(exposure_delta):
                     entry["exposure_delta"] += exposure_delta
@@ -134,13 +149,21 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             "exposure_pair_coverage_fraction": (
                 entry["exposure_pairs"] / entry["paired"] if entry["paired"] else 0.0
             ),
+            "exposure_rollback_video_count": entry["exposure_rollback_video_count"],
+            "exposure_history_status": (
+                "CUMULATIVE_ROLLBACK" if entry["exposure_rollback_video_count"]
+                else "UNMEASURED" if not entry["exposure_snapshots"]
+                else "PARTIAL" if entry["exposure_snapshots"] < entry["snapshots"]
+                else "MONOTONE_REPORTED"
+            ),
             "community_breadth": len(entry["community_ids"]),
             "observed_lineage_breadth": len(entry["lineage_ids"]),
             "view_velocity_per_video_hour": velocity,
             "exposure_adjusted_view_rate": exposure_rate,
             "log_view_delta": log1p(entry["view_delta"]),
             "status": "CANDIDATE_NOT_ADMITTED" if (
-                len(entry["paired_creator_ids"]) >= min_creators and entry["paired"]
+                not entry["exposure_rollback_video_count"]
+                and len(entry["paired_creator_ids"]) >= min_creators and entry["paired"]
             ) else "UNRESOLVED",
             "predictive_input": False,
             "algorithmic_amplification": "NOT_IDENTIFIABLE_FROM_PUBLIC_COUNTS",
