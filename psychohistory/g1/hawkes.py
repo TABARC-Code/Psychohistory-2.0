@@ -52,6 +52,12 @@ def fit_exponential_hawkes(events, T):
     # time units from changing the optimiser's search geometry. Rates are
     # transformed back to their physical units after optimisation.
     u = e / T
+    # A strictly positive event must not underflow onto the window origin.
+    # Otherwise the fit silently changes the observed event chronology.
+    if np.any((e > 0) & (u == 0)):
+        return {"status": "UNRESOLVED",
+                "reason": "event times collapse to window origin at normalised precision",
+                "predictive_input": False}
     if np.any(np.diff(u) <= 0):
         return {"status": "UNRESOLVED",
                 "reason": "event times collapse at observation-window precision"}
