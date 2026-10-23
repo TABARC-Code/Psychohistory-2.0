@@ -128,13 +128,22 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         # reported first-availability chronology. Keep retrospective rates
         # separate from point-in-time eligibility.
         entry["availability_adjacent_pairs"] += max(0, len(snapshots) - 1)
-        for earlier, later in pairwise(snapshots):
-            first = earlier[2].get("available_at")
-            second = later[2].get("available_at")
-            if first is not None and second is not None:
-                entry["availability_reported_pairs"] += 1
-                if _utc(first) > _utc(second):
-                    entry["inverted_availability_pairs"] += 1
+        # Coverage counts directly adjacent observed snapshots. Chronological
+        # integrity instead compares successive *reported* availability times,
+        # including across gaps in optional metadata. A missing middle record
+        # must not conceal a known inversion between its neighbours.
+        reported_availability = [
+            _utc(snapshot[2]["available_at"]) for snapshot in snapshots
+            if snapshot[2].get("available_at") is not None
+        ]
+        entry["availability_reported_pairs"] += sum(
+            earlier[2].get("available_at") is not None
+            and later[2].get("available_at") is not None
+            for earlier, later in pairwise(snapshots)
+        )
+        entry["inverted_availability_pairs"] += sum(
+            first > second for first, second in pairwise(reported_availability)
+        )
         entry["exposure_snapshots"] += len(exposure_history)
         entry["exposure_rollback_video_count"] += int(exposure_rollback)
         entry["videos"] += 1
