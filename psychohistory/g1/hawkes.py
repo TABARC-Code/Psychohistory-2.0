@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 def _log_likelihood_unit_window(u, mu, alpha, beta):
     """Exact finite-window exponential Hawkes log likelihood, O(n) in events.
 
-    Events must be strictly ordered in [0, 1]. With no pre-window history,
+    Events must be strictly ordered in [0, 1). With no pre-window history,
     S_i = exp(-beta * (u_i - u_{i-1})) * (1 + S_{i-1}), S_0 = 0.
     The compensator includes the right-censoring term for every event.
     """
@@ -31,7 +31,7 @@ def _log_likelihood_unit_window(u, mu, alpha, beta):
 
 
 def fit_exponential_hawkes(events, T):
-    """Fit a zero-prehistory exponential Hawkes diagnostic on [0, T]."""
+    """Fit a zero-prehistory exponential Hawkes diagnostic on [0, T)."""
     try:
         # Complex event times are not real observations. NumPy can silently
         # discard imaginary components when casting an existing complex array.
@@ -47,7 +47,7 @@ def fit_exponential_hawkes(events, T):
         return {"status": "UNRESOLVED", "reason": "invalid numeric input"}
     if e.ndim != 1 or not np.isfinite(T) or T <= 0 or not np.all(np.isfinite(e)):
         return {"status": "UNRESOLVED", "reason": "invalid event array or observation window"}
-    if np.any(e < 0) or np.any(e > T):
+    if np.any(e < 0) or np.any(e >= T):
         return {"status": "UNRESOLVED", "reason": "events outside observation window"}
     if len(e) < 5:
         return {"status": "UNRESOLVED", "reason": "need >=5 events"}
@@ -104,6 +104,16 @@ def fit_exponential_hawkes(events, T):
     if (not np.all(np.isfinite([mu, alpha, beta, branching]))
             or branching >= 0.999):
         return {"status": "UNRESOLVED", "reason": "invalid or unstable fit"}
+    # A near-zero excitation/decay pair can mimic a Poisson process while
+    # alpha/beta remains arbitrary. Numerical convergence alone is insufficient.
+    poisson_ll_u = len(e) * (np.log(len(e)) - 1.0)
+    null_gain_u = float(-result.fun - poisson_ll_u)
+    null_tol = 1e-8 * max(1.0, abs(poisson_ll_u))
+    if beta_u <= 1e-3 or null_gain_u <= null_tol:
+        return {"status": "UNRESOLVED",
+                "reason": "decay or excitation unidentifiable against in-sample Poisson null",
+                "branching_ratio_candidate": float(branching),
+                "predictive_input": False}
     if branching <= 1e-4:
         return {"status": "UNRESOLVED",
                 "reason": "near-zero excitation: decay rate unidentifiable",
