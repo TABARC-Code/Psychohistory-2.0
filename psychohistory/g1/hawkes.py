@@ -33,6 +33,14 @@ def _log_likelihood_unit_window(u, mu, alpha, beta):
 def fit_exponential_hawkes(events, T):
     """Fit a zero-prehistory exponential Hawkes diagnostic on [0, T]."""
     try:
+        # Complex event times are not real observations. NumPy can silently
+        # discard imaginary components when casting an existing complex array.
+        raw = np.asarray(events)
+        if (np.iscomplexobj(T) or np.iscomplexobj(raw)
+                or (raw.dtype == object
+                    and any(np.iscomplexobj(value) for value in raw.flat))):
+            return {"status": "UNRESOLVED", "reason": "complex event times or window",
+                    "predictive_input": False}
         e = np.asarray(events, dtype=float)
         T = float(T)
     except (TypeError, ValueError, OverflowError):
