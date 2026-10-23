@@ -75,6 +75,8 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         "exposure_view_delta": 0.0, "exposure_delta": 0.0,
         "exposure_pairs": 0, "paired": 0,
         "snapshots": 0, "available_snapshots": 0,
+        "availability_adjacent_pairs": 0, "availability_reported_pairs": 0,
+        "inverted_availability_pairs": 0,
         "exposure_snapshots": 0, "exposure_rollback_video_count": 0})
     for (topic, fmt, _), snapshots in grouped.items():
         snapshots.sort(key=lambda x: x[0])
@@ -106,6 +108,17 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         last = snapshots[-1][2]
         key = (topic, fmt)
         entry = topics[key]
+        # A later ordered pair cannot repair an earlier inversion in the
+        # reported first-availability chronology. Keep retrospective rates
+        # separate from point-in-time eligibility.
+        entry["availability_adjacent_pairs"] += max(0, len(snapshots) - 1)
+        for earlier, later in pairwise(snapshots):
+            first = earlier[2].get("available_at")
+            second = later[2].get("available_at")
+            if first is not None and second is not None:
+                entry["availability_reported_pairs"] += 1
+                if _utc(first) > _utc(second):
+                    entry["inverted_availability_pairs"] += 1
         entry["exposure_snapshots"] += len(exposure_history)
         entry["exposure_rollback_video_count"] += int(exposure_rollback)
         entry["videos"] += 1
@@ -157,6 +170,17 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 else "PARTIAL" if entry["available_snapshots"]
                 else "UNMEASURED"
             ),
+            "availability_history_pair_coverage_fraction": (
+                entry["availability_reported_pairs"] / entry["availability_adjacent_pairs"]
+                if entry["availability_adjacent_pairs"] else 0.0
+            ),
+            "out_of_order_availability_pair_count": entry["inverted_availability_pairs"],
+            "point_in_time_velocity_status": (
+                "UNRESOLVED_AVAILABILITY_ORDER" if entry["inverted_availability_pairs"]
+                else "REPORTED_ONLY_UNVERIFIED" if entry["availability_adjacent_pairs"]
+                and entry["availability_reported_pairs"] == entry["availability_adjacent_pairs"]
+                else "UNVERIFIED_AVAILABILITY"
+            ),
             "exposure_pair_coverage_fraction": (
                 entry["exposure_pairs"] / entry["paired"] if entry["paired"] else 0.0
             ),
@@ -174,6 +198,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             "log_view_delta": log1p(entry["view_delta"]),
             "status": "CANDIDATE_NOT_ADMITTED" if (
                 not entry["exposure_rollback_video_count"]
+                and not entry["inverted_availability_pairs"]
                 and len(entry["paired_creator_ids"]) >= min_creators and entry["paired"]
             ) else "UNRESOLVED",
             "predictive_input": False,
