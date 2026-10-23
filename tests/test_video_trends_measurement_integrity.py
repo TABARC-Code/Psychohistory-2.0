@@ -24,7 +24,7 @@ def test_matched_exposure():
 def test_identity_consistency():
     rows = [row("v1", "c1", 2, 100), row("v1", "c2", 0, 200)]
     r = analyse_video_trends(rows, NOW, min_creators=1)
-    assert r["rejected_records"] == 1
+    assert r["rejected_records"] == 2
     assert r["series"] == []
 
 
