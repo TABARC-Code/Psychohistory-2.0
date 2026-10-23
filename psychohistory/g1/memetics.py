@@ -85,11 +85,29 @@ def analyse_memetic_observations(observations):
         missing_communities == 0 and cross_community_breadth <= 1
     )
     cross_community_overlap_lower = cross_community_overlap_events / len(events)
-    cross_community_overlap_upper = (
-        cross_community_overlap_lower
-        if complete_joint_metadata or len(events) == 1 or single_known_community
-        else 1.0
-    )
+    if complete_joint_metadata or len(events) == 1 or single_known_community:
+        cross_community_overlap_upper = cross_community_overlap_lower
+    elif lineage_observed == len(events):
+        # Complete content ancestry limits possible overlap to lineages seen
+        # on at least two events. An unknown community may be distinct from
+        # every observed community, but cannot invent a missing content root.
+        possible_cross_lineages = {
+            ancestor for ancestor, count in lineages.items()
+            if count > 1 and (
+                len(lineage_communities[ancestor]) >= 2
+                or any(
+                    not event.community_id and ancestor in event.content_ancestry
+                    for event in events
+                )
+            )
+        }
+        cross_community_overlap_upper = sum(
+            bool(set(event.content_ancestry) & possible_cross_lineages)
+            for event in events
+        ) / len(events)
+    else:
+        # Missing content ancestry may still conceal arbitrary shared roots.
+        cross_community_overlap_upper = 1.0
     carrier_breadth = len(carriers)
 
     # These are behavioural diagnostics, not measurements of endorsement or
