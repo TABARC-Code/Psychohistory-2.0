@@ -82,6 +82,16 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         if len({s[0] for s in snapshots}) != len(snapshots):
             rejected += 1
             continue
+        # Views are cumulative over the visible history. A later recovery
+        # does not repair an earlier count rollback. Exclude the whole video
+        # before adding community, lineage or creator breadth, rather than
+        # allowing inconsistent telemetry to imply narrative transmission.
+        if any(
+            later[1] < earlier[1] or not isfinite(later[1] - earlier[1])
+            for earlier, later in pairwise(snapshots)
+        ):
+            rejected += len(snapshots)
+            continue
         # Counts are cumulative over the entire visible history. An earlier
         # rollback is not repaired by an increase in the final pair. Compare
         # consecutive known measurements even across missing snapshots.
