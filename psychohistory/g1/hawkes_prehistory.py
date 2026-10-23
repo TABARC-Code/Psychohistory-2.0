@@ -156,6 +156,6 @@ def fit_exponential_hawkes_observed_prehistory(events, T, *, prehistory=()):
     return {"status": "VALID", "mu": float(mu), "alpha": float(alpha),
             "beta": float(beta), "branching_ratio": float(branching),
             "log_likelihood": float(-best.fun - len(u) * np.log(T)),
-            "prehistory_event_count": int(len(p)),
+            "prehistory_event_count": len(p),
             "prehistory_status": "OBSERVED_CONDITIONING_NOT_INDEPENDENTLY_VERIFIED",
             "identifiability_status": "UNVERIFIED", "predictive_input": False}
