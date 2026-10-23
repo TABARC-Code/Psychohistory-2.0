@@ -7,9 +7,15 @@ from .spectral_bounds import connectivity_interval
 
 def laplacian_metrics(adjacency):
     try:
-        A = np.asarray(adjacency, dtype=float)
+        raw = np.asarray(adjacency)
+        # Do not project complex network measurements onto the real axis.
+        # Even a zero imaginary component must not bypass the input contract.
+        if np.iscomplexobj(raw) or (raw.dtype == object
+                and any(np.iscomplexobj(value) for value in raw.flat)):
+            raise ValueError("complex adjacency is not a real-valued measurement")
+        A = np.asarray(raw, dtype=float)
     except (TypeError, ValueError) as exc:
-        raise ValueError("numeric adjacency required") from exc
+        raise ValueError("real numeric adjacency required") from exc
     if (A.ndim != 2 or A.shape[0] == 0 or A.shape[0] != A.shape[1]
             or not np.all(np.isfinite(A))):
         raise ValueError("finite nonempty square adjacency required")
