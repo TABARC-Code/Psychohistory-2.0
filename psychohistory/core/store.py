@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .models import Forecast, Observation
 from .numeric_precision import exact_binary64_real
+from .validation import _aware_instant
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS observations(
 observation_id TEXT PRIMARY KEY, series TEXT, effective_at TEXT, available_at TEXT,
@@ -45,6 +46,10 @@ class Store:
             raise ValueError("observation value must be finite exact binary64")
         if not exact_binary64_real(o.quality) or not 0 <= o.quality <= 1:
             raise ValueError("observation quality must be exact binary64 in [0,1]")
+        # Persist only clocks that can be ordered as real UTC instants.
+        # A naive stored clock would later crash comparisons with an aware cutoff.
+        if not _aware_instant(o.effective_at) or not _aware_instant(o.available_at):
+            raise ValueError("observation clocks must be UTC-convertible aware datetimes")
         # SQLite binds some valid NumPy scalars as BLOBs unless normalised.
         # Convert only after exact-binary64 validation has succeeded.
         self.db.execute(
@@ -65,6 +70,8 @@ class Store:
         self.db.commit()
 
     def observations_as_of(self, as_of: datetime, series=None):
+        if not _aware_instant(as_of):
+            raise ValueError("as_of must be a UTC-convertible aware datetime")
         q = """SELECT observation_id,series,effective_at,available_at,value,source,
         vintage,revision_type,quality,pipeline_position,ancestry,evidence_role,
         content_ancestry,carrier,actor_id,community_id,semantic_variant
