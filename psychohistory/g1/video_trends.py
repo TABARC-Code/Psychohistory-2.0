@@ -4,17 +4,19 @@ Public counts cannot identify recommendation algorithms or causal transmission.
 Every output is a non-admitted candidate until independently validated.
 """
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import UTC
 from itertools import pairwise
 from math import isfinite, log1p
 
 from ..core.numeric_precision import exact_binary64_real
+from ..core.validation import _aware_instant
 
 
 def _utc(value):
-    if (not isinstance(value, datetime) or value.tzinfo is None
-            or value.utcoffset() is None):
-        raise ValueError("timestamps must be timezone-aware datetimes")
+    # A defined offset is not enough: conversion itself can overflow the
+    # representable datetime range or fail in a custom timezone provider.
+    if not _aware_instant(value):
+        raise ValueError("timestamps must be timezone-aware datetimes convertible to UTC")
     return value.astimezone(UTC)
 
 
