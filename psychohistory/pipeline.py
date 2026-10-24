@@ -1,21 +1,17 @@
-from datetime import UTC, datetime
+from datetime import UTC
 
-from .core.validation import validate_observations
+from .core.validation import _aware_instant, validate_observations
 from .g1.memetics import analyse_memetic_observations
 from .validation.scoring import brier
 
 
 def _effective_by(observation, cutoff):
     effective = observation.effective_at
-    return (isinstance(effective, datetime)
-            and effective.tzinfo is not None
-            and effective.utcoffset() is not None
-            and effective.astimezone(UTC) <= cutoff)
+    return _aware_instant(effective) and effective.astimezone(UTC) <= cutoff
 
 
 def evaluate(store, as_of):
-    if (not isinstance(as_of, datetime) or as_of.tzinfo is None
-            or as_of.utcoffset() is None):
+    if not _aware_instant(as_of):
         raise ValueError("as_of must be a timezone-aware datetime")
     cutoff = as_of.astimezone(UTC)
     obs = store.observations_as_of(as_of)
