@@ -214,9 +214,16 @@ class Store:
         self.db.commit()
 
     def resolve(self, event_id, outcome, resolved_at, vintage="first_release"):
-        # Never silently turn a fractional outcome into a binary result.
+        # An outcome is evidence, not a verified Outcome Contract. Preserve
+        # the original binary value, source label and actual UTC instant.
+        # Neither this insertion nor the vintage label admits forecast scoring.
+        if (type(event_id) is not str or not event_id.strip()
+                or type(vintage) is not str or not vintage.strip()):
+            raise ValueError("outcome event and vintage must be non-blank strings")
         if type(outcome) is not int or outcome not in (0, 1):
             raise ValueError("outcome must be the integer 0 or 1")
+        if not _aware_instant(resolved_at):
+            raise ValueError("outcome resolved_at must be a UTC-convertible aware datetime")
         self.db.execute(
             "INSERT INTO outcomes VALUES(?,?,?,?)",
             (event_id, resolved_at.isoformat(), outcome, vintage),
