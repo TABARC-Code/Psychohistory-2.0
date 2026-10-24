@@ -12,7 +12,8 @@ from ..core.numeric_precision import exact_binary64_real
 
 
 def _utc(value):
-    if not isinstance(value, datetime) or value.tzinfo is None:
+    if (not isinstance(value, datetime) or value.tzinfo is None
+            or value.utcoffset() is None):
         raise ValueError("timestamps must be timezone-aware datetimes")
     return value.astimezone(UTC)
 
