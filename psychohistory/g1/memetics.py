@@ -1,5 +1,8 @@
 from collections import Counter, defaultdict
+from datetime import UTC
 from math import log1p
+
+from ..core.validation import _aware_instant
 
 
 ATTRIBUTION_HYPOTHESES = (
@@ -67,6 +70,13 @@ def analyse_memetic_observations(observations):
         return {
             "status": "UNRESOLVED",
             "reason": "no memetic propagation observations",
+            "predictive_input": False,
+        }
+
+    if any(not _aware_instant(event.effective_at) for event in events):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid propagation effective timestamp",
             "predictive_input": False,
         }
 
@@ -164,6 +174,13 @@ def analyse_memetic_observations(observations):
             events
         )
     carrier_breadth = len(carriers)
+    # Local wall-clock subtraction ignores DST transitions when both clocks
+    # share the same tzinfo object. Measure actual elapsed UTC time instead.
+    effective_instants = [event.effective_at.astimezone(UTC) for event in events]
+    persistence_span_seconds = (
+        (max(effective_instants) - min(effective_instants)).total_seconds()
+        if len(effective_instants) > 1 else 0.0
+    )
 
     # These are behavioural diagnostics, not measurements of endorsement or
     # a collective subconscious. They require external validation before use
@@ -201,9 +218,7 @@ def analyse_memetic_observations(observations):
             else "UNMEASURED"
         ),
         "carrier_breadth": carrier_breadth,
-        "persistence_span_seconds": (
-            max(o.effective_at for o in events) - min(o.effective_at for o in events)
-        ).total_seconds() if len(events) > 1 else 0.0,
+        "persistence_span_seconds": persistence_span_seconds,
         "log_event_volume": log1p(len(events)),
     }
 
