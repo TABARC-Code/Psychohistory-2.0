@@ -56,6 +56,12 @@ class Store:
         self.db.commit()
 
     def add_observation(self, o: Observation):
+        # SQLite permits NULL TEXT primary keys and blank series labels.
+        # Refuse malformed identities before evidence can enter the ledger.
+        for field in ("observation_id", "series", "source", "vintage"):
+            label = getattr(o, field)
+            if type(label) is not str or not label.strip():
+                raise ValueError(f"observation {field} must be a non-blank string")
         # Validate original numeric types before SQLite coerces them to REAL.
         # An integer beyond binary64 precision or an extended-precision
         # measurement must not silently change on storage.
@@ -103,12 +109,23 @@ class Store:
         """
         issues = []
         checked = 0
-        for identifier, effective, available, value, quality, ancestry, content_ancestry, evidence_role in self.db.execute(
-            "SELECT observation_id,effective_at,available_at,value,quality, "
-            "ancestry,content_ancestry,evidence_role FROM observations ORDER BY observation_id"
+        for (identifier, series, source, vintage, effective, available, value,
+             quality, ancestry, content_ancestry, evidence_role) in self.db.execute(
+            "SELECT observation_id,series,source,vintage,effective_at,available_at, "
+            "value,quality,ancestry,content_ancestry,evidence_role "
+            "FROM observations ORDER BY observation_id"
         ):
             checked += 1
             invalid = []
+            for field, label in (("observation_id", identifier), ("series", series)):
+                if type(label) is not str or not label.strip():
+                    invalid.append(field)
+            # Legacy SQL NULL source/vintage means unrecorded, not a
+            # fabricated publication or release. Explicit malformed labels
+            # are still corrupt. New writes always require both fields.
+            for field, label in (("source", source), ("vintage", vintage)):
+                if label is not None and (type(label) is not str or not label.strip()):
+                    invalid.append(field)
             for field, raw in (
                 ("effective_at", effective), ("available_at", available)
             ):
