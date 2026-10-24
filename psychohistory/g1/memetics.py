@@ -95,6 +95,17 @@ def analyse_memetic_observations(observations):
             "predictive_input": False,
         }
 
+    # Direct calls bypass the store's unique observation_id constraint and
+    # validate_observations() duplicate check. Repeated IDs can otherwise
+    # manufacture both event volume and cross-community lineage overlap.
+    identities = [event.observation_id for event in events]
+    if len(set(identities)) != len(identities):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "duplicate propagation observation identifier",
+            "predictive_input": False,
+        }
+
     # The direct G1 entry point must enforce the same ancestry structure as
     # the validated storage pipeline. A string or dict otherwise becomes a
     # collection of characters or keys and invents shared content origins.
