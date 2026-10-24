@@ -45,6 +45,8 @@ class Store:
             raise ValueError("observation value must be finite exact binary64")
         if not exact_binary64_real(o.quality) or not 0 <= o.quality <= 1:
             raise ValueError("observation quality must be exact binary64 in [0,1]")
+        # SQLite binds some valid NumPy scalars as BLOBs unless normalised.
+        # Convert only after exact-binary64 validation has succeeded.
         self.db.execute(
             """INSERT INTO observations(
             observation_id,series,effective_at,available_at,value,source,vintage,
@@ -53,8 +55,8 @@ class Store:
             VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (
                 o.observation_id, o.series, o.effective_at.isoformat(),
-                o.available_at.isoformat(), o.value, o.source, o.vintage,
-                o.revision_type, o.quality, o.pipeline_position,
+                o.available_at.isoformat(), float(o.value), o.source, o.vintage,
+                o.revision_type, float(o.quality), o.pipeline_position,
                 json.dumps(o.ancestry), o.evidence_role,
                 json.dumps(o.content_ancestry), o.carrier, o.actor_id,
                 o.community_id, o.semantic_variant,
