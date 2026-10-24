@@ -185,9 +185,33 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
     result = []
     for (topic, fmt), entry in sorted(topics.items()):
         creators = len(entry["creator_ids"])
-        velocity = entry["view_delta"] / entry["hours"] if entry["hours"] else None
-        exposure_rate = (entry["exposure_view_delta"] / entry["exposure_delta"]
-                         if entry["exposure_delta"] > 0 else None)
+        # Individually finite cumulative count changes can overflow when
+        # aggregated across many videos. A finite numerator divided by a very
+        # short observation interval can also overflow. Never publish inf,
+        # NaN or a false zero exposure rate as a usable candidate.
+        totals_finite = all(isfinite(entry[key]) for key in (
+            "view_delta", "hours", "exposure_view_delta", "exposure_delta"
+        ))
+        velocity = (
+            entry["view_delta"] / entry["hours"]
+            if isfinite(entry["view_delta"]) and isfinite(entry["hours"])
+            and entry["hours"] > 0 else None
+        )
+        if velocity is not None and not isfinite(velocity):
+            velocity = None
+        exposure_rate = (
+            entry["exposure_view_delta"] / entry["exposure_delta"]
+            if isfinite(entry["exposure_view_delta"])
+            and isfinite(entry["exposure_delta"])
+            and entry["exposure_delta"] > 0 else None
+        )
+        if exposure_rate is not None and not isfinite(exposure_rate):
+            exposure_rate = None
+        numeric_ok = (
+            totals_finite
+            and (entry["hours"] == 0 or velocity is not None)
+            and (entry["exposure_delta"] == 0 or exposure_rate is not None)
+        )
         result.append({
             "topic": topic, "format": fmt, "video_count": entry["videos"],
             "independent_creator_count_unverified": creators,
@@ -226,9 +250,13 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             "observed_lineage_breadth": len(entry["lineage_ids"]),
             "view_velocity_per_video_hour": velocity,
             "exposure_adjusted_view_rate": exposure_rate,
-            "log_view_delta": log1p(entry["view_delta"]),
+            "log_view_delta": (log1p(entry["view_delta"])
+                               if isfinite(entry["view_delta"]) else None),
+            "numerical_integrity_status": (
+                "VALID" if numeric_ok else "UNRESOLVED_AGGREGATE_OVERFLOW"
+            ),
             "status": "CANDIDATE_NOT_ADMITTED" if (
-                not entry["exposure_rollback_video_count"]
+                numeric_ok and not entry["exposure_rollback_video_count"]
                 and not entry["inverted_availability_pairs"]
                 and len(entry["paired_creator_ids"]) >= min_creators and entry["paired"]
             ) else "UNRESOLVED",
