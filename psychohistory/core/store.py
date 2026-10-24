@@ -1,6 +1,6 @@
 import json
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .models import Forecast, Observation
@@ -151,15 +151,20 @@ class Store:
             raise ValueError(
                 f"stored observation integrity unresolved: {len(audit['issues'])} invalid rows"
             )
+        # SQLite julianday() does not understand every UTC-convertible ISO
+        # offset (notably offsets with seconds). It can silently omit valid
+        # evidence and rounds sub-millisecond times. The full-population
+        # integrity audit already scans every record, so select by exact
+        # Python UTC instants rather than using SQLite as a time filter.
         q = """SELECT observation_id,series,effective_at,available_at,value,source,
         vintage,revision_type,quality,pipeline_position,ancestry,evidence_role,
         content_ancestry,carrier,actor_id,community_id,semantic_variant
-        FROM observations WHERE julianday(available_at)<=julianday(?)"""
-        args = [as_of.isoformat()]
+        FROM observations"""
+        args = []
         if series:
-            q += " AND series=?"
+            q += " WHERE series=?"
             args.append(series)
-        q += " ORDER BY julianday(effective_at),julianday(available_at)"
+        cutoff = as_of.astimezone(UTC)
         observations = [
             Observation(
                 r[0], r[1], datetime.fromisoformat(r[2]), datetime.fromisoformat(r[3]),
@@ -167,15 +172,18 @@ class Store:
                 r[11] or "measurement", tuple(json.loads(r[12] or "[]")),
                 r[13], r[14], r[15], r[16],
             )
-            # SQLite julianday() rounds sub-millisecond timestamps.
-            # Recheck exact instants before returning observations.
             for r in self.db.execute(q, args)
-            if datetime.fromisoformat(r[3]) <= as_of
+            if datetime.fromisoformat(r[3]).astimezone(UTC) <= cutoff
         ]
-        # Preserve sub-millisecond event ordering for directional lag analysis.
+        # Absolute UTC sorting also handles mixed offsets and repeated local
+        # clock labels. Preserve exact microsecond ordering and stable ties.
         return sorted(
             observations,
-            key=lambda o: (o.effective_at, o.available_at, o.observation_id),
+            key=lambda o: (
+                o.effective_at.astimezone(UTC),
+                o.available_at.astimezone(UTC),
+                o.observation_id,
+            ),
         )
 
     def add_forecast(self, f: Forecast):
