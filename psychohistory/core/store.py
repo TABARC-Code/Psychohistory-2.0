@@ -69,9 +69,52 @@ class Store:
         )
         self.db.commit()
 
+    def audit_stored_observations(self):
+        """Read-only check of legacy evidence that predates insertion guards.
+
+        SQLite's julianday() silently excludes unparseable availability clocks.
+        Checking only selected rows would therefore conceal corrupt evidence.
+        Audit the full stored population before any point-in-time selection.
+        """
+        issues = []
+        checked = 0
+        for identifier, effective, available, value, quality in self.db.execute(
+            "SELECT observation_id,effective_at,available_at,value,quality "
+            "FROM observations ORDER BY observation_id"
+        ):
+            checked += 1
+            invalid = []
+            for field, raw in (
+                ("effective_at", effective), ("available_at", available)
+            ):
+                try:
+                    parsed = datetime.fromisoformat(raw)
+                except (TypeError, ValueError, OverflowError):
+                    invalid.append(field)
+                else:
+                    if not _aware_instant(parsed):
+                        invalid.append(field)
+            if not exact_binary64_real(value):
+                invalid.append("value")
+            if not exact_binary64_real(quality) or not 0 <= quality <= 1:
+                invalid.append("quality")
+            if invalid:
+                issues.append({"observation_id": identifier, "fields": invalid})
+        return {
+            "status": "UNRESOLVED" if issues else "VALID",
+            "checked": checked,
+            "issues": issues,
+            "predictive_input": False,
+        }
+
     def observations_as_of(self, as_of: datetime, series=None):
         if not _aware_instant(as_of):
             raise ValueError("as_of must be a UTC-convertible aware datetime")
+        audit = self.audit_stored_observations()
+        if audit["status"] != "VALID":
+            raise ValueError(
+                f"stored observation integrity unresolved: {len(audit['issues'])} invalid rows"
+            )
         q = """SELECT observation_id,series,effective_at,available_at,value,source,
         vintage,revision_type,quality,pipeline_position,ancestry,evidence_role,
         content_ancestry,carrier,actor_id,community_id,semantic_variant
