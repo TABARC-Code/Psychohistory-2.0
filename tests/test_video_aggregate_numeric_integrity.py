@@ -25,7 +25,7 @@ def _pair(video, delta, exposure_delta=None, topic="industrial"):
 
 
 def test_sum_of_finite_view_deltas_cannot_publish_infinite_velocity():
-    rows = sum((_pair(f"v{i}", 1e308) for i in range(3)), [])
+    rows = [row for i in range(3) for row in _pair(f"v{i}", 1e308)]
     result = analyse_video_trends(rows, NOW)
     assert result["rejected_records"] == 0
     series = result["series"][0]
@@ -38,7 +38,7 @@ def test_sum_of_finite_view_deltas_cannot_publish_infinite_velocity():
 
 
 def test_sum_of_finite_exposure_deltas_cannot_publish_false_zero_rate():
-    rows = sum((_pair(f"v{i}", 1.0, 1e308) for i in range(3)), [])
+    rows = [row for i in range(3) for row in _pair(f"v{i}", 1.0, 1e308)]
     series = analyse_video_trends(rows, NOW)["series"][0]
     assert series["view_velocity_per_video_hour"] == 1.0
     assert series["exposure_adjusted_view_rate"] is None
@@ -48,8 +48,8 @@ def test_sum_of_finite_exposure_deltas_cannot_publish_false_zero_rate():
 
 
 def test_large_valid_counts_do_not_poison_independent_topics():
-    rows = sum((_pair(f"v{i}", 1e308) for i in range(3)), [])
-    rows += sum((_pair(f"good{i}", 10.0, 20.0, topic="health") for i in range(3)), [])
+    rows = [row for i in range(3) for row in _pair(f"v{i}", 1e308)]
+    rows += [row for i in range(3) for row in _pair(f"good{i}", 10.0, 20.0, topic="health")]
     series = {s["topic"]: s for s in analyse_video_trends(rows, NOW)["series"]}
     assert series["industrial"]["status"] == "UNRESOLVED"
     assert series["health"]["status"] == "CANDIDATE_NOT_ADMITTED"
