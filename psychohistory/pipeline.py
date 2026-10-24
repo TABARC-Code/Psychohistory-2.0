@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC
 
 from .core.validation import _aware_instant, validate_observations
 from .g1.memetics import analyse_memetic_observations
