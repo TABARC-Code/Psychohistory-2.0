@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import UTC, datetime
 from math import isfinite
 from numbers import Real
 
@@ -9,6 +10,16 @@ def _finite_real(value):
         return False
     try:
         return bool(isfinite(value))
+    except (TypeError, ValueError, OverflowError):
+        return False
+
+
+def _aware_instant(value):
+    """Reject naive clocks and timezone objects without a defined offset."""
+    if not isinstance(value, datetime) or value.tzinfo is None:
+        return False
+    try:
+        return value.utcoffset() is not None
     except (TypeError, ValueError, OverflowError):
         return False
 
@@ -58,6 +69,9 @@ def _component_breadth(observations, lineage_attribute):
 
 
 def validate_observations(obs, as_of):
+    if not _aware_instant(as_of):
+        raise ValueError("as_of must be a timezone-aware datetime")
+    cutoff = as_of.astimezone(UTC)
     obs = list(obs)
     errors = []
     warnings = []
@@ -67,8 +81,12 @@ def validate_observations(obs, as_of):
     propagation = []
 
     for o in obs:
-        if o.available_at > as_of:
+        if not _aware_instant(o.available_at):
+            errors.append(f"invalid availability timestamp: {o.observation_id}")
+        elif o.available_at.astimezone(UTC) > cutoff:
             errors.append(f"future leakage: {o.observation_id}")
+        if not _aware_instant(o.effective_at):
+            errors.append(f"invalid effective timestamp: {o.observation_id}")
         if o.observation_id in seen:
             errors.append(f"duplicate id: {o.observation_id}")
         seen.add(o.observation_id)
