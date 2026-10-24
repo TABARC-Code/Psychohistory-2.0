@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .models import Forecast, Observation
+from .numeric_precision import exact_binary64_real
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS observations(
 observation_id TEXT PRIMARY KEY, series TEXT, effective_at TEXT, available_at TEXT,
@@ -37,6 +38,13 @@ class Store:
         self.db.commit()
 
     def add_observation(self, o: Observation):
+        # Validate original numeric types before SQLite coerces them to REAL.
+        # An integer beyond binary64 precision or an extended-precision
+        # measurement must not silently change on storage.
+        if not exact_binary64_real(o.value):
+            raise ValueError("observation value must be finite exact binary64")
+        if not exact_binary64_real(o.quality) or not 0 <= o.quality <= 1:
+            raise ValueError("observation quality must be exact binary64 in [0,1]")
         self.db.execute(
             """INSERT INTO observations(
             observation_id,series,effective_at,available_at,value,source,vintage,
