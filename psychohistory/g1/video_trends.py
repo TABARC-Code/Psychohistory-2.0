@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 from itertools import pairwise
 from math import isfinite, log1p
 
+from ..core.numeric_precision import exact_binary64_real
+
 
 def _utc(value):
     if not isinstance(value, datetime) or value.tzinfo is None:
@@ -46,9 +48,11 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                     continue
             views = record["views"]
             exposure = record.get("exposure")
-            if isinstance(views, bool) or not isinstance(views, (int, float)) or not isfinite(views) or views < 0:
+            if (not isinstance(views, (int, float))
+                    or not exact_binary64_real(views) or views < 0):
                 raise ValueError("invalid views")
-            if exposure is not None and (isinstance(exposure, bool) or not isinstance(exposure, (int, float)) or not isfinite(exposure) or exposure < 0):
+            if exposure is not None and (not isinstance(exposure, (int, float))
+                    or not exact_binary64_real(exposure) or exposure < 0):
                 raise ValueError("invalid exposure")
             if record["format"] not in ("short", "long"):
                 raise ValueError("invalid format")
