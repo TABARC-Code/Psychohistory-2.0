@@ -1,17 +1,11 @@
 from collections import defaultdict
 from datetime import UTC, datetime
-from math import isfinite
-from numbers import Real
+from .numeric_precision import exact_binary64_real
 
 
 def _finite_real(value):
-    """Check representable finite real values without leaking overflow."""
-    if isinstance(value, bool) or not isinstance(value, Real):
-        return False
-    try:
-        return bool(isfinite(value))
-    except (TypeError, ValueError, OverflowError):
-        return False
+    """Check original finite measurements without binary64 rounding."""
+    return exact_binary64_real(value)
 
 
 def _aware_instant(value):
