@@ -187,12 +187,29 @@ class Store:
         )
 
     def add_forecast(self, f: Forecast):
-        if not 0 <= f.probability <= 1:
-            raise ValueError("probability must be in [0,1]")
+        # Database persistence cannot authenticate immutable registration or
+        # admit a forecast, but it must not corrupt its probability or clocks.
+        if any(
+            type(identifier) is not str or not identifier.strip()
+            for identifier in (f.forecast_id, f.event_id, f.model)
+        ):
+            raise ValueError("forecast identifiers and model must be non-blank strings")
+        if not exact_binary64_real(f.probability) or not 0 <= f.probability <= 1:
+            raise ValueError("probability must be exact binary64 in [0,1]")
+        if (f.baseline_probability is not None
+                and (not exact_binary64_real(f.baseline_probability)
+                     or not 0 <= f.baseline_probability <= 1)):
+            raise ValueError("baseline probability must be exact binary64 in [0,1]")
+        if (not _aware_instant(f.origin) or not _aware_instant(f.horizon_end)
+                or f.horizon_end.astimezone(UTC) <= f.origin.astimezone(UTC)):
+            raise ValueError("forecast horizon must follow a valid UTC origin")
+        # SQLite binds some NumPy scalars as BLOBs. Normalise only after
+        # exact-value checks so stored forecasts retain their measurements.
         self.db.execute(
             "INSERT INTO forecasts(forecast_id,event_id,origin,horizon_end,probability,model,baseline_probability) VALUES(?,?,?,?,?,?,?)",
             (f.forecast_id, f.event_id, f.origin.isoformat(), f.horizon_end.isoformat(),
-             f.probability, f.model, f.baseline_probability),
+             float(f.probability), f.model,
+             float(f.baseline_probability) if f.baseline_probability is not None else None),
         )
         self.db.commit()
 
