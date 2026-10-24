@@ -18,6 +18,15 @@ def evaluate(store, as_of):
     # Store.scored() has no historical cutoff, registration check or outcome
     # contract verification. Keep retrospective scoring unmeasured.
     scored = []
+    # Historical outcome rows are diagnostic evidence until independently
+    # matched to immutable registrations and outcome contracts.
+    outcome_audit = getattr(store, "audit_stored_outcomes", None)
+    outcome_integrity = (
+        outcome_audit() if callable(outcome_audit) else {
+            "status": "UNVERIFIED", "checked": 0, "issues": [],
+            "predictive_input": False,
+        }
+    )
     measurement = validate_observations(obs, as_of)
     g1_candidates = [o for o in obs if o.is_propagation]
     # Availability establishes what was knowable; effective_at establishes
@@ -44,6 +53,7 @@ def evaluate(store, as_of):
         "measurement": measurement,
         "g1_measurement": g1_measurement,
         "n_observations": len(obs),
+        "outcome_integrity": outcome_integrity,
         "g1_memetics": memetics,
         "g1_excluded_future_or_unverifiable_effective_at": (
             len(g1_candidates) - len(g1_obs)
