@@ -12,18 +12,18 @@ WHEN = datetime(2026, 10, 24, 12, tzinfo=UTC)
 
 
 def event(index, **changes):
-    fields = dict(
-        observation_id=f"event-{index}",
-        series="g1:meme",
-        effective_at=WHEN,
-        available_at=WHEN,
-        value=1.0,
-        source="observed",
-        evidence_role="propagation",
-        ancestry=("collector",),
-        content_ancestry=("shared-root",),
-        community_id=f"community-{index}",
-    )
+    fields = {
+        "observation_id": f"event-{index}",
+        "series": "g1:meme",
+        "effective_at": WHEN,
+        "available_at": WHEN,
+        "value": 1.0,
+        "source": "observed",
+        "evidence_role": "propagation",
+        "ancestry": ("collector",),
+        "content_ancestry": ("shared-root",),
+        "community_id": f"community-{index}",
+    }
     fields.update(changes)
     return Observation(**fields)
 
