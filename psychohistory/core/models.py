@@ -2,6 +2,8 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from .validation import _aware_instant
+
 
 @dataclass(frozen=True)
 class Observation:
@@ -26,11 +28,8 @@ class Observation:
     def visible(self, as_of: datetime) -> bool:
         """Return point-in-time visibility using absolute UTC instants."""
         available = self.available_at
-        if (not isinstance(available, datetime)
-                or available.tzinfo is None or available.utcoffset() is None
-                or not isinstance(as_of, datetime)
-                or as_of.tzinfo is None or as_of.utcoffset() is None):
-            raise ValueError("visibility requires timezone-aware datetimes")
+        if not _aware_instant(available) or not _aware_instant(as_of):
+            raise ValueError("visibility requires UTC-convertible aware datetimes")
         return available.astimezone(UTC) <= as_of.astimezone(UTC)
 
     @property
