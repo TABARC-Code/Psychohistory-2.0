@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .models import Forecast, Observation
 from .numeric_precision import exact_binary64_real
-from .validation import _aware_instant
+from .validation import _aware_instant, _valid_ancestry
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS observations(
 observation_id TEXT PRIMARY KEY, series TEXT, effective_at TEXT, available_at TEXT,
@@ -16,6 +16,23 @@ semantic_variant TEXT);
 CREATE TABLE IF NOT EXISTS forecasts(forecast_id TEXT PRIMARY KEY,event_id TEXT,origin TEXT,horizon_end TEXT,probability REAL,model TEXT,baseline_probability REAL,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS outcomes(event_id TEXT, resolved_at TEXT, outcome INTEGER CHECK(outcome IN(0,1)), vintage TEXT, PRIMARY KEY(event_id,vintage));
 CREATE TABLE IF NOT EXISTS hypotheses(hypothesis_id TEXT PRIMARY KEY,family TEXT,status TEXT,predictive_input INTEGER DEFAULT 0,metadata TEXT);"""
+
+def _valid_stored_ancestry(raw):
+    """Legacy SQL NULL means unrecorded ancestry, not a claimed source.
+
+    Other values must be JSON arrays of non-blank source identifiers.
+    Converting a JSON string or object directly to tuple would manufacture
+    ancestry from its characters or keys.
+    """
+    if raw is None:
+        return True
+    if not isinstance(raw, str):
+        return False
+    try:
+        decoded = json.loads(raw)
+    except (TypeError, ValueError):
+        return False
+    return isinstance(decoded, list) and _valid_ancestry(decoded)
 
 
 class Store:
@@ -50,6 +67,8 @@ class Store:
         # A naive stored clock would later crash comparisons with an aware cutoff.
         if not _aware_instant(o.effective_at) or not _aware_instant(o.available_at):
             raise ValueError("observation clocks must be UTC-convertible aware datetimes")
+        if not _valid_ancestry(o.ancestry) or not _valid_ancestry(o.content_ancestry):
+            raise ValueError("observation ancestry must be lists or tuples of non-blank IDs")
         # SQLite binds some valid NumPy scalars as BLOBs unless normalised.
         # Convert only after exact-binary64 validation has succeeded.
         self.db.execute(
@@ -78,9 +97,9 @@ class Store:
         """
         issues = []
         checked = 0
-        for identifier, effective, available, value, quality in self.db.execute(
-            "SELECT observation_id,effective_at,available_at,value,quality "
-            "FROM observations ORDER BY observation_id"
+        for identifier, effective, available, value, quality, ancestry, content_ancestry in self.db.execute(
+            "SELECT observation_id,effective_at,available_at,value,quality, "
+            "ancestry,content_ancestry FROM observations ORDER BY observation_id"
         ):
             checked += 1
             invalid = []
@@ -98,6 +117,10 @@ class Store:
                 invalid.append("value")
             if not exact_binary64_real(quality) or not 0 <= quality <= 1:
                 invalid.append("quality")
+            if not _valid_stored_ancestry(ancestry):
+                invalid.append("ancestry")
+            if not _valid_stored_ancestry(content_ancestry):
+                invalid.append("content_ancestry")
             if invalid:
                 issues.append({"observation_id": identifier, "fields": invalid})
         return {
@@ -127,7 +150,7 @@ class Store:
         observations = [
             Observation(
                 r[0], r[1], datetime.fromisoformat(r[2]), datetime.fromisoformat(r[3]),
-                r[4], r[5], r[6], r[7], r[8], r[9], tuple(json.loads(r[10])),
+                r[4], r[5], r[6], r[7], r[8], r[9], tuple(json.loads(r[10] or "[]")),
                 r[11] or "measurement", tuple(json.loads(r[12] or "[]")),
                 r[13], r[14], r[15], r[16],
             )
