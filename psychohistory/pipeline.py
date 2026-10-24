@@ -27,7 +27,14 @@ def evaluate(store, as_of):
     # Availability establishes what was knowable; effective_at establishes
     # whether the propagation event itself had occurred by this cutoff.
     g1_obs = [o for o in g1_candidates if _effective_by(o, cutoff)]
-    g1_measurement = validate_observations(g1_obs, as_of)
+    # Check all candidates before event-time filtering: invalid clocks must
+    # not disappear and make the remaining G1 sample appear valid. Keep
+    # measurement summaries limited to events effective at this cutoff.
+    candidate_validation = validate_observations(g1_candidates, as_of)
+    g1_measurement = (
+        validate_observations(g1_obs, as_of)
+        if candidate_validation["valid"] else candidate_validation
+    )
     if g1_measurement["valid"]:
         memetics = analyse_memetic_observations(g1_obs)
     else:
