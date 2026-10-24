@@ -73,6 +73,28 @@ def analyse_memetic_observations(observations):
             "predictive_input": False,
         }
 
+    # Direct G1 calls bypass storage. Malformed event identities must not
+    # contribute apparent propagation, even when lineage metadata is sound.
+    if any(
+        (type(event.observation_id) is not str
+         or not event.observation_id.strip())
+        or (hasattr(event, "series")
+            and (type(event.series) is not str or not event.series.strip()))
+        or any(
+            hasattr(event, field)
+            and getattr(event, field) is not None
+            and (type(getattr(event, field)) is not str
+                 or not getattr(event, field).strip())
+            for field in ("source", "vintage")
+        )
+        for event in events
+    ):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid propagation identity or provenance",
+            "predictive_input": False,
+        }
+
     # The direct G1 entry point must enforce the same ancestry structure as
     # the validated storage pipeline. A string or dict otherwise becomes a
     # collection of characters or keys and invents shared content origins.
