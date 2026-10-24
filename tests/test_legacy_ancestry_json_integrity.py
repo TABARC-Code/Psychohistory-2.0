@@ -63,11 +63,11 @@ def test_legacy_invalid_ancestry_fails_closed(tmp_path, column, payload):
 ])
 def test_new_invalid_ancestry_rejected_before_storage(tmp_path, column, value):
     store = Store(tmp_path / "new.db")
-    fields = dict(
-        observation_id="bad-new", series="g1:meme",
-        effective_at=NOW, available_at=NOW, value=1.0,
-        source="source", evidence_role="propagation",
-    )
+    fields = {
+        "observation_id": "bad-new", "series": "g1:meme",
+        "effective_at": NOW, "available_at": NOW, "value": 1.0,
+        "source": "source", "evidence_role": "propagation",
+    }
     fields[column] = value
     with pytest.raises(ValueError, match="ancestry"):
         store.add_observation(Observation(**fields))
