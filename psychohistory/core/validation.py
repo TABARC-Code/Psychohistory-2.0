@@ -19,7 +19,12 @@ def _aware_instant(value):
     if not isinstance(value, datetime) or value.tzinfo is None:
         return False
     try:
-        return value.utcoffset() is not None
+        if value.utcoffset() is None:
+            return False
+        # A defined offset is insufficient if conversion crosses datetime's
+        # representable bounds. Validate the actual UTC instant.
+        value.astimezone(UTC)
+        return True
     except (TypeError, ValueError, OverflowError):
         return False
 
