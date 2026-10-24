@@ -6,6 +6,8 @@ measurement precision. Bounds are diagnostic, not evidence of transmission.
 from fractions import Fraction
 from math import isfinite
 
+from ..core.numeric_precision import exact_binary64_real
+
 
 def connectivity_interval(adjacency, *, max_nodes=12):
     """Bound lambda_2 with a maximum-spanning-tree and Rayleigh cut tests.
@@ -24,6 +26,10 @@ def connectivity_interval(adjacency, *, max_nodes=12):
         for x in row:
             if isinstance(x, bool):
                 raise TypeError("Boolean weights are not allowed")
+            # Fractions must represent the supplied weight, not a value
+            # silently rounded or underflowed during float conversion.
+            if not exact_binary64_real(x):
+                raise ValueError("numeric weights required without binary64 precision loss")
             try:
                 val = float(x)
             except (TypeError, ValueError, OverflowError) as exc:

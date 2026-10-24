@@ -2,19 +2,24 @@
 import numpy as np
 from fractions import Fraction
 
+from ..core.numeric_precision import exact_binary64_real
 from .spectral_bounds import connectivity_interval
 
 
 def laplacian_metrics(adjacency):
     try:
-        raw = np.asarray(adjacency)
-        # Do not project complex network measurements onto the real axis.
-        # Even a zero imaginary component must not bypass the input contract.
-        if np.iscomplexobj(raw) or (raw.dtype == object
-                and any(np.iscomplexobj(value) for value in raw.flat)):
+        # Keep the original scalar types until the binary64 input boundary
+        # has been checked. Premature array promotion can round a large
+        # integer edge or erase a positive extended-precision edge.
+        raw = np.asarray(adjacency, dtype=object)
+        # Complex values are not real network weights, even when their
+        # imaginary component happens to be zero.
+        if any(np.iscomplexobj(value) for value in raw.flat):
             raise ValueError("complex adjacency is not a real-valued measurement")
+        if any(not exact_binary64_real(value) for value in raw.flat):
+            raise ValueError("adjacency weight cannot be represented exactly")
         A = np.asarray(raw, dtype=float)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ValueError("real numeric adjacency required") from exc
     if (A.ndim != 2 or A.shape[0] == 0 or A.shape[0] != A.shape[1]
             or not np.all(np.isfinite(A))):
