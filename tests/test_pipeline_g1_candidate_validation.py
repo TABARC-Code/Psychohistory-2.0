@@ -78,5 +78,6 @@ def test_valid_future_effective_event_is_excluded_without_blocking_current_g1():
     )
     assert result["g1_measurement"]["valid"] is True
     assert result["g1_excluded_future_or_unverifiable_effective_at"] == 1
+    assert result["g1_measurement"]["propagation_event_count"] == 1
     assert result["g1_memetics"]["status"] == "CANDIDATE_NOT_ADMITTED"
     assert result["g1_memetics"]["predictive_input"] is False
