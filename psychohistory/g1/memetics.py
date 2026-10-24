@@ -2,7 +2,7 @@ from collections import Counter, defaultdict
 from datetime import UTC
 from math import log1p
 
-from ..core.validation import _aware_instant
+from ..core.validation import _aware_instant, _valid_ancestry
 
 
 ATTRIBUTION_HYPOTHESES = (
@@ -70,6 +70,20 @@ def analyse_memetic_observations(observations):
         return {
             "status": "UNRESOLVED",
             "reason": "no memetic propagation observations",
+            "predictive_input": False,
+        }
+
+    # The direct G1 entry point must enforce the same ancestry structure as
+    # the validated storage pipeline. A string or dict otherwise becomes a
+    # collection of characters or keys and invents shared content origins.
+    if any(
+        not _valid_ancestry(event.ancestry)
+        or not _valid_ancestry(event.content_ancestry)
+        for event in events
+    ):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid propagation ancestry metadata",
             "predictive_input": False,
         }
 
