@@ -230,6 +230,49 @@ class Store:
         )
         self.db.commit()
 
+    def audit_stored_outcomes(self):
+        """Read-only audit of historical outcome evidence.
+
+        Legacy SQLite tables can contain NULL outcomes despite a CHECK
+        constraint, and composite primary keys permit NULL identifiers.
+        Neither a valid row nor this audit authenticates an Outcome Contract.
+        """
+        issues = []
+        checked = 0
+        rows = self.db.execute(
+            "SELECT rowid,event_id,resolved_at,outcome,vintage "
+            "FROM outcomes ORDER BY rowid"
+        )
+        for rowid, event_id, resolved_at, outcome, vintage in rows:
+            checked += 1
+            invalid = []
+            if type(event_id) is not str or not event_id.strip():
+                invalid.append("event_id")
+            if type(vintage) is not str or not vintage.strip():
+                invalid.append("vintage")
+            if type(outcome) is not int or outcome not in (0, 1):
+                invalid.append("outcome")
+            try:
+                instant = datetime.fromisoformat(resolved_at)
+            except (TypeError, ValueError, OverflowError):
+                invalid.append("resolved_at")
+            else:
+                if not _aware_instant(instant):
+                    invalid.append("resolved_at")
+            if invalid:
+                issues.append({
+                    "rowid": rowid,
+                    "event_id": event_id,
+                    "vintage": vintage,
+                    "fields": invalid,
+                })
+        return {
+            "status": "UNRESOLVED" if issues else "VALID",
+            "checked": checked,
+            "issues": issues,
+            "predictive_input": False,
+        }
+
     def scored(self):
         """Fail closed until registrations and outcome contracts are verified.
 
