@@ -86,9 +86,25 @@ def validate_observations(obs, as_of):
             errors.append(f"future leakage: {o.observation_id}")
         if not _aware_instant(o.effective_at):
             errors.append(f"invalid effective timestamp: {o.observation_id}")
-        if o.observation_id in seen:
-            errors.append(f"duplicate id: {o.observation_id}")
-        seen.add(o.observation_id)
+        identifier = o.observation_id
+        if type(identifier) is not str or not identifier.strip():
+            # Avoid hashing malformed or unhashable identifiers.
+            errors.append(f"invalid observation_id: {identifier!r}")
+        else:
+            if identifier in seen:
+                errors.append(f"duplicate id: {identifier}")
+            seen.add(identifier)
+        if hasattr(o, "series") and (
+                type(o.series) is not str or not o.series.strip()):
+            errors.append(f"invalid series: {identifier!r}")
+        # Historical SQL NULL source/vintage is unrecorded. Reject explicit
+        # malformed labels, without inventing provenance for old records.
+        for field in ("source", "vintage"):
+            if hasattr(o, field):
+                label = getattr(o, field)
+                if label is not None and (
+                        type(label) is not str or not label.strip()):
+                    errors.append(f"invalid {field}: {identifier!r}")
         if not _finite_real(o.value):
             errors.append(f"invalid numeric value: {o.observation_id}")
         if not _finite_real(o.quality) or not 0 <= o.quality <= 1:
