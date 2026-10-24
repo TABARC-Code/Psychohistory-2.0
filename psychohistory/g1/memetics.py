@@ -119,9 +119,11 @@ def analyse_memetic_observations(observations):
         ancestor for ancestor, members in lineage_communities.items()
         if len(members) >= 2
     }
+    # A root already observed in two distinct communities remains
+    # cross-community for every known member, even when that member's
+    # own community label is missing. Do not discard certain membership.
     cross_community_overlap_events = sum(
-        bool(event.community_id and
-             set(event.content_ancestry) & cross_community_lineages)
+        bool(set(event.content_ancestry) & cross_community_lineages)
         for event in events
     )
     complete_joint_metadata = all(
