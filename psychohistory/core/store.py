@@ -69,6 +69,12 @@ class Store:
             raise ValueError("observation clocks must be UTC-convertible aware datetimes")
         if not _valid_ancestry(o.ancestry) or not _valid_ancestry(o.content_ancestry):
             raise ValueError("observation ancestry must be lists or tuples of non-blank IDs")
+        # Evidence role determines whether an event enters G1 propagation or
+        # ordinary measurement. Do not persist a role that retrieval might
+        # silently reclassify as ordinary evidence.
+        if (type(o.evidence_role) is not str
+                or o.evidence_role not in ("measurement", "propagation")):
+            raise ValueError("observation evidence role must be measurement or propagation")
         # SQLite binds some valid NumPy scalars as BLOBs unless normalised.
         # Convert only after exact-binary64 validation has succeeded.
         self.db.execute(
@@ -97,9 +103,9 @@ class Store:
         """
         issues = []
         checked = 0
-        for identifier, effective, available, value, quality, ancestry, content_ancestry in self.db.execute(
+        for identifier, effective, available, value, quality, ancestry, content_ancestry, evidence_role in self.db.execute(
             "SELECT observation_id,effective_at,available_at,value,quality, "
-            "ancestry,content_ancestry FROM observations ORDER BY observation_id"
+            "ancestry,content_ancestry,evidence_role FROM observations ORDER BY observation_id"
         ):
             checked += 1
             invalid = []
@@ -121,6 +127,13 @@ class Store:
                 invalid.append("ancestry")
             if not _valid_stored_ancestry(content_ancestry):
                 invalid.append("content_ancestry")
+            # SQL NULL is the existing legacy convention for an unrecorded
+            # role. Explicit empty, unknown or non-text roles are corrupt;
+            # retrieval must not turn them into ordinary measurements.
+            if (evidence_role is not None and
+                    (type(evidence_role) is not str or evidence_role not in
+                     ("measurement", "propagation"))):
+                invalid.append("evidence_role")
             if invalid:
                 issues.append({"observation_id": identifier, "fields": invalid})
         return {
