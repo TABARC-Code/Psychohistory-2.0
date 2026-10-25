@@ -4,6 +4,7 @@ from math import log1p
 
 from ..core.validation import (
     _aware_instant, _finite_real, _valid_ancestry, _valid_optional_label,
+    _valid_primary_label,
 )
 
 
@@ -78,15 +79,13 @@ def analyse_memetic_observations(observations):
     # Direct G1 calls bypass storage. Malformed event identities must not
     # contribute apparent propagation, even when lineage metadata is sound.
     if any(
-        (type(event.observation_id) is not str
-         or not event.observation_id.strip())
+        not _valid_primary_label(event.observation_id)
         or (hasattr(event, "series")
-            and (type(event.series) is not str or not event.series.strip()))
+            and not _valid_primary_label(event.series))
         or any(
             hasattr(event, field)
             and getattr(event, field) is not None
-            and (type(getattr(event, field)) is not str
-                 or not getattr(event, field).strip())
+            and not _valid_primary_label(getattr(event, field))
             for field in ("source", "vintage")
         )
         for event in events

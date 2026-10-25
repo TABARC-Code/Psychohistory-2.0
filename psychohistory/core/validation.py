@@ -34,6 +34,11 @@ def _valid_ancestry(value):
                     and token == token.strip() for token in value))
 
 
+def _valid_primary_label(value):
+    """Reject ambiguous primary identities rather than rewriting provenance."""
+    return type(value) is str and bool(value.strip()) and value == value.strip()
+
+
 def _valid_optional_label(value):
     """Optional evidence IDs must be canonical text or genuinely unrecorded.
 
@@ -111,7 +116,7 @@ def validate_observations(obs, as_of):
                 and o.effective_at.astimezone(UTC) > o.available_at.astimezone(UTC)):
             errors.append(f"propagation chronology: {o.observation_id}")
         identifier = o.observation_id
-        if type(identifier) is not str or not identifier.strip():
+        if not _valid_primary_label(identifier):
             # Avoid hashing malformed or unhashable identifiers.
             errors.append(f"invalid observation_id: {identifier!r}")
         else:
@@ -119,7 +124,7 @@ def validate_observations(obs, as_of):
                 errors.append(f"duplicate id: {identifier}")
             seen.add(identifier)
         if hasattr(o, "series") and (
-                type(o.series) is not str or not o.series.strip()):
+                not _valid_primary_label(o.series)):
             errors.append(f"invalid series: {identifier!r}")
         # Historical SQL NULL source/vintage is unrecorded. Reject explicit
         # malformed labels, without inventing provenance for old records.
@@ -127,7 +132,7 @@ def validate_observations(obs, as_of):
             if hasattr(o, field):
                 label = getattr(o, field)
                 if label is not None and (
-                        type(label) is not str or not label.strip()):
+                        not _valid_primary_label(label)):
                     errors.append(f"invalid {field}: {identifier!r}")
         # A whitespace-only community is not a second observed community.
         # Reject malformed labels before G1 breadth and overlap diagnostics.
