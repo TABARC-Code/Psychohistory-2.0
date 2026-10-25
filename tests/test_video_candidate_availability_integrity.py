@@ -64,3 +64,22 @@ def test_known_inversion_still_blocks_candidate():
     result = analyse_video_trends(rows, CUTOFF)
     assert result["rejected_records"] == 1
     assert result["predictive_input"] is False
+
+
+def test_unavailable_singleton_cannot_hide_inside_complete_velocity_pairs():
+    rows = _snapshots()
+    rows.append({
+        "video_id": "single-video",
+        "creator_id": "single",
+        "topic": "non_ai_industrial_disruption",
+        "format": "short",
+        "published_at": CUTOFF - timedelta(days=1),
+        "observed_at": CUTOFF - timedelta(minutes=30),
+        "views": 15,
+    })
+    series = analyse_video_trends(rows, CUTOFF)["series"][0]
+    assert series["availability_history_pair_coverage_fraction"] == 1
+    assert series["snapshot_availability_coverage_fraction"] < 1
+    assert series["point_in_time_velocity_status"] == "UNVERIFIED_AVAILABILITY"
+    assert series["status"] == "UNRESOLVED"
+    assert series["predictive_input"] is False
