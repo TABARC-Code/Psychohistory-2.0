@@ -19,10 +19,14 @@ class DirectedHypothesis:
     evidence_ids: tuple[str, ...] = ()
 
     def __post_init__(self):
-        if (not isinstance(self.source, str) or not self.source
-                or not isinstance(self.target, str) or not self.target
+        # Whitespace-only or padded domain labels create artificial nodes
+        # and can conceal a self-edge behind different spellings.
+        if (type(self.source) is not str or not self.source.strip()
+                or self.source != self.source.strip()
+                or type(self.target) is not str or not self.target.strip()
+                or self.target != self.target.strip()
                 or self.source == self.target):
-            raise ValueError("distinct nonempty source and target required")
+            raise ValueError("distinct canonical source and target required")
         if type(self.lag_days) is not int or self.lag_days < 0:
             raise ValueError("lag_days must be a nonnegative integer")
         if self.coefficient is not None:
@@ -37,6 +41,14 @@ class DirectedHypothesis:
                 raise ValueError("coefficient must be finite")
         if type(self.admitted) is not bool:
             raise ValueError("admitted must be Boolean")
+        # Evidence identifiers are provenance references, not arbitrary truthy
+        # objects. Repeated or padded IDs must not imply independent support.
+        if (type(self.evidence_ids) is not tuple
+                or any(type(identifier) is not str or not identifier.strip()
+                       or identifier != identifier.strip()
+                       for identifier in self.evidence_ids)
+                or len(set(self.evidence_ids)) != len(self.evidence_ids)):
+            raise ValueError("evidence_ids must be distinct non-blank identifiers")
         if self.admitted and (self.coefficient is None or not self.evidence_ids):
             raise ValueError("admission requires a finite coefficient and evidence")
 
