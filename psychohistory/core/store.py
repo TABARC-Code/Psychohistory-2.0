@@ -163,7 +163,10 @@ class Store:
                     and datetime.fromisoformat(effective).astimezone(UTC)
                     > datetime.fromisoformat(available).astimezone(UTC)):
                 invalid.append("propagation chronology")
-            if type(revision_type) is not str:
+            # Historical SQL NULL means unrecorded revision metadata, not
+            # a verified "none" classification. Leave it untouched; direct
+            # measurement validation still treats it as unresolved.
+            if revision_type is not None and type(revision_type) is not str:
                 invalid.append("revision_type")
             if not exact_binary64_real(value):
                 invalid.append("value")
