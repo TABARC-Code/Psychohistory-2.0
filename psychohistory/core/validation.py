@@ -35,8 +35,14 @@ def _valid_ancestry(value):
 
 
 def _valid_optional_label(value):
-    """Optional evidence labels are either unknown or non-blank text."""
-    return value is None or (type(value) is str and bool(value.strip()))
+    """Optional evidence IDs must be canonical text or genuinely unrecorded.
+
+    Padded labels can split one observed community, actor or content variant
+    into apparently independent identities. Reject rather than rewrite them.
+    """
+    return value is None or (
+        type(value) is str and bool(value.strip()) and value == value.strip()
+    )
 
 
 def _safe_ancestry(value):
