@@ -237,7 +237,7 @@ class Store:
         # Database persistence cannot authenticate immutable registration or
         # admit a forecast, but it must not corrupt its probability or clocks.
         if any(
-            type(identifier) is not str or not identifier.strip()
+            not _valid_primary_label(identifier)
             for identifier in (f.forecast_id, f.event_id, f.model)
         ):
             raise ValueError("forecast identifiers and model must be non-blank strings")
@@ -264,8 +264,7 @@ class Store:
         # An outcome is evidence, not a verified Outcome Contract. Preserve
         # the original binary value, source label and actual UTC instant.
         # Neither this insertion nor the vintage label admits forecast scoring.
-        if (type(event_id) is not str or not event_id.strip()
-                or type(vintage) is not str or not vintage.strip()):
+        if not _valid_primary_label(event_id) or not _valid_primary_label(vintage):
             raise ValueError("outcome event and vintage must be non-blank strings")
         if type(outcome) is not int or outcome not in (0, 1):
             raise ValueError("outcome must be the integer 0 or 1")
@@ -293,9 +292,9 @@ class Store:
         for rowid, event_id, resolved_at, outcome, vintage in rows:
             checked += 1
             invalid = []
-            if type(event_id) is not str or not event_id.strip():
+            if not _valid_primary_label(event_id):
                 invalid.append("event_id")
-            if type(vintage) is not str or not vintage.strip():
+            if not _valid_primary_label(vintage):
                 invalid.append("vintage")
             if type(outcome) is not int or outcome not in (0, 1):
                 invalid.append("outcome")
