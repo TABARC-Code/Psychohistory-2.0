@@ -73,6 +73,11 @@ class Store:
         # A naive stored clock would later crash comparisons with an aware cutoff.
         if not _aware_instant(o.effective_at) or not _aware_instant(o.available_at):
             raise ValueError("observation clocks must be UTC-convertible aware datetimes")
+        # Advance notices are valid ordinary measurements, but cannot be
+        # stored as observations of propagation before the event occurred.
+        if (o.is_propagation
+                and o.effective_at.astimezone(UTC) > o.available_at.astimezone(UTC)):
+            raise ValueError("propagation chronology: event follows first availability")
         if not _valid_ancestry(o.ancestry) or not _valid_ancestry(o.content_ancestry):
             raise ValueError("observation ancestry must be lists or tuples of non-blank IDs")
         # Evidence role determines whether an event enters G1 propagation or
@@ -145,6 +150,12 @@ class Store:
                 else:
                     if not _aware_instant(parsed):
                         invalid.append(field)
+            if (evidence_role == "propagation"
+                    and "effective_at" not in invalid
+                    and "available_at" not in invalid
+                    and datetime.fromisoformat(effective).astimezone(UTC)
+                    > datetime.fromisoformat(available).astimezone(UTC)):
+                invalid.append("propagation chronology")
             if not exact_binary64_real(value):
                 invalid.append("value")
             if not exact_binary64_real(quality) or not 0 <= quality <= 1:
