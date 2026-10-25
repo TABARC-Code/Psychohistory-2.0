@@ -1,6 +1,5 @@
 """Direct G1 measurements must meet the same numeric and clock contract as storage."""
 
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
