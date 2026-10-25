@@ -3,8 +3,7 @@
 These functions cannot establish whether an outcome was available at a forecast
 origin. They must not be used as independent proof of prospective skill.
 """
-from math import isfinite
-from numbers import Real
+from ..core.numeric_precision import exact_binary64_real
 
 
 def _sequence(values):
@@ -17,12 +16,9 @@ def _sequence(values):
 
 
 def _finite_real(value):
-    if isinstance(value, bool) or not isinstance(value, Real):
-        return False
-    try:
-        return bool(isfinite(value))
-    except (TypeError, ValueError, OverflowError):
-        return False
+    # Persistence must not accept a value that the observation and scoring
+    # boundaries would change when converted to binary64.
+    return exact_binary64_real(value)
 
 
 def _arithmetic_result(**fields):
@@ -53,5 +49,5 @@ def persistence(values):
     if not rows:
         return {"status": "UNMEASURED", "predictive_input": False}
     if any(not _finite_real(value) for value in rows):
-        return {"status": "UNRESOLVED", "reason": "values must be finite real numbers", "predictive_input": False}
-    return _arithmetic_result(prediction=rows[-1])
+        return {"status": "UNRESOLVED", "reason": "values must be finite exact binary64 measurements", "predictive_input": False}
+    return _arithmetic_result(prediction=float(rows[-1]))
