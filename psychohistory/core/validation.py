@@ -101,6 +101,15 @@ def validate_observations(obs, as_of):
             errors.append(f"future leakage: {o.observation_id}")
         if not _aware_instant(o.effective_at):
             errors.append(f"invalid effective timestamp: {o.observation_id}")
+        # Future-effective G1 candidates are excluded by the pipeline at
+        # this cutoff. Do not let a scheduled event invalidate current G1;
+        # once effective, its first-availability must not predate occurrence.
+        # Ordinary measurements may legitimately describe future shocks.
+        if (o.is_propagation and _aware_instant(o.effective_at)
+                and _aware_instant(o.available_at)
+                and o.effective_at.astimezone(UTC) <= cutoff
+                and o.effective_at.astimezone(UTC) > o.available_at.astimezone(UTC)):
+            errors.append(f"propagation chronology: {o.observation_id}")
         identifier = o.observation_id
         if type(identifier) is not str or not identifier.strip():
             # Avoid hashing malformed or unhashable identifiers.
