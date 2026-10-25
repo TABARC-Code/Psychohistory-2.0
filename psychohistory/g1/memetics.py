@@ -2,7 +2,9 @@ from collections import Counter, defaultdict
 from datetime import UTC
 from math import log1p
 
-from ..core.validation import _aware_instant, _valid_ancestry, _valid_optional_label
+from ..core.validation import (
+    _aware_instant, _finite_real, _valid_ancestry, _valid_optional_label,
+)
 
 
 ATTRIBUTION_HYPOTHESES = (
@@ -133,6 +135,28 @@ def analyse_memetic_observations(observations):
         return {
             "status": "UNRESOLVED",
             "reason": "invalid propagation ancestry metadata",
+            "predictive_input": False,
+        }
+
+    # Direct G1 callers bypass the store and measurement validator. Do not
+    # report lineage measurements from nonfinite, lossy or invalid observations.
+    # This validates input evidence; it does not weight events by quality.
+    if any(
+        not _finite_real(event.value)
+        or not _finite_real(event.quality)
+        or not 0 <= event.quality <= 1
+        for event in events
+    ):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid propagation numeric measurement or quality",
+            "predictive_input": False,
+        }
+
+    if any(not _aware_instant(event.available_at) for event in events):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid propagation availability timestamp",
             "predictive_input": False,
         }
 
