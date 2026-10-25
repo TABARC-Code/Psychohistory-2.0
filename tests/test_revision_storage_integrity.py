@@ -33,7 +33,7 @@ def test_insertion_rejects_non_text_revision_before_sqlite(tmp_path, revision_ty
     assert store.db.execute("SELECT COUNT(*) FROM observations").fetchone()[0] == 0
 
 
-@pytest.mark.parametrize("revision_type", [None, 17])
+@pytest.mark.parametrize("revision_type", [17, False])
 def test_legacy_non_text_revision_is_audited_without_mutation(tmp_path, revision_type):
     store = Store(tmp_path / "revision.db")
     store.db.execute(
@@ -67,3 +67,22 @@ def test_unknown_text_revision_retains_warning_and_stores(tmp_path):
     result = validate_observations(retrieved, NOW)
     assert result["valid"]
     assert any("unknown revision type" in item for item in result["warnings"])
+
+
+def test_legacy_null_revision_is_unrecorded_not_silently_reclassified(tmp_path):
+    store = Store(tmp_path / "revision.db")
+    store.db.execute(
+        """INSERT INTO observations
+        (observation_id,series,effective_at,available_at,value,source,
+         vintage,revision_type,quality)
+        VALUES (?,?,?,?,?,?,?,?,?)""",
+        ("factory-output-1", "industry:output", NOW.isoformat(),
+         NOW.isoformat(), 1.0, "statistics-office", "first", None, 1.0),
+    )
+    store.db.commit()
+    # Old rows with absent revision metadata remain readable and unchanged,
+    # but cannot pass the measurement validator as a known classification.
+    assert store.audit_stored_observations()["status"] == "VALID"
+    retrieved = store.observations_as_of(NOW)
+    assert retrieved[0].revision_type is None
+    assert validate_observations(retrieved, NOW)["valid"] is False
