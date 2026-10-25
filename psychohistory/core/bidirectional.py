@@ -28,11 +28,10 @@ class DirectedHypothesis:
             raise ValueError("distinct canonical source and target required")
         if type(self.lag_days) is not int or self.lag_days < 0:
             raise ValueError("lag_days must be a nonnegative integer")
-        if self.coefficient is not None:
-            # A finite value may still change when converted to the binary64
-            # precision used by the estimators. Refuse lossy evidence here.
-            if not exact_binary64_real(self.coefficient):
-                raise ValueError("coefficient must be finite and exactly representable")
+        # A finite value may still change when converted to the binary64
+        # precision used by the estimators. Refuse lossy evidence here.
+        if self.coefficient is not None and not exact_binary64_real(self.coefficient):
+            raise ValueError("coefficient must be finite and exactly representable")
         if type(self.admitted) is not bool:
             raise ValueError("admitted must be Boolean")
         # Evidence identifiers are provenance references, not arbitrary truthy
