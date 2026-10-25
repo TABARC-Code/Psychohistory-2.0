@@ -167,6 +167,21 @@ def analyse_memetic_observations(observations):
             "predictive_input": False,
         }
 
+    # Advance notices and scheduled future activity are not observations of
+    # propagation that has already occurred. Compare UTC instants: local wall
+    # times may reverse their apparent order across offsets or DST changes.
+    # This direct entry point has no as_of cutoff, so it must at least refuse
+    # events whose first-availability precedes the claimed event itself.
+    if any(
+        event.available_at.astimezone(UTC) < event.effective_at.astimezone(UTC)
+        for event in events
+    ):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "propagation chronology: event occurs after first availability",
+            "predictive_input": False,
+        }
+
     carriers = Counter(o.carrier for o in events if o.carrier)
     actors = Counter(o.actor_id for o in events if o.actor_id)
     communities = Counter(o.community_id for o in events if o.community_id)
