@@ -28,6 +28,10 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
     lineage_id, community_id, exposure and available_at. Snapshots are cumulative.
     View velocity uses only successive snapshots for the SAME video.
     """
+    # Creator breadth is an integer count, not a tunable floating threshold.
+    # Reject zero, negative and Boolean settings before measuring candidates.
+    if type(min_creators) is not int or min_creators < 1:
+        raise ValueError("min_creators must be a positive integer")
     cutoff = _utc(as_of)
     grouped = defaultdict(list)
     validated = []
