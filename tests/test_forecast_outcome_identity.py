@@ -16,9 +16,11 @@ ORIGIN = datetime(2026, 10, 25, 12, tzinfo=UTC)
 @pytest.mark.parametrize("field", ("forecast_id", "event_id", "model"))
 def test_padded_forecast_identity_is_rejected(tmp_path, field):
     store = Store(tmp_path / "registration.sqlite")
-    values = dict(forecast_id="forecast-1", event_id="industrial-event",
-                  origin=ORIGIN, horizon_end=ORIGIN + timedelta(days=2),
-                  probability=0.4, model="diagnostic")
+    values = {
+        "forecast_id": "forecast-1", "event_id": "industrial-event",
+        "origin": ORIGIN, "horizon_end": ORIGIN + timedelta(days=2),
+        "probability": 0.4, "model": "diagnostic",
+    }
     values[field] = " " + values[field] + " "
     with pytest.raises(ValueError):
         store.add_forecast(Forecast(**values))
@@ -28,7 +30,7 @@ def test_padded_forecast_identity_is_rejected(tmp_path, field):
 @pytest.mark.parametrize("field", ("event_id", "vintage"))
 def test_padded_new_outcome_identity_is_rejected(tmp_path, field):
     store = Store(tmp_path / "outcome.sqlite")
-    values = dict(event_id="industrial-event", vintage="first_release")
+    values = {"event_id": "industrial-event", "vintage": "first_release"}
     values[field] = " " + values[field] + " "
     with pytest.raises(ValueError):
         store.resolve(values["event_id"], 1, ORIGIN, vintage=values["vintage"])
@@ -38,7 +40,7 @@ def test_padded_new_outcome_identity_is_rejected(tmp_path, field):
 @pytest.mark.parametrize("field", ("event_id", "vintage"))
 def test_legacy_padded_outcome_is_reported_without_rewriting(tmp_path, field):
     store = Store(tmp_path / "legacy.sqlite")
-    values = dict(event_id="industrial-event", vintage="first_release")
+    values = {"event_id": "industrial-event", "vintage": "first_release"}
     values[field] = " " + values[field] + " "
     store.db.execute(
         "INSERT INTO outcomes(event_id,resolved_at,outcome,vintage) VALUES(?,?,?,?)",
