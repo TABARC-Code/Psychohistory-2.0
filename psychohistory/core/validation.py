@@ -30,6 +30,11 @@ def _valid_ancestry(value):
                     for token in value))
 
 
+def _valid_optional_label(value):
+    """Optional evidence labels are either unknown or non-blank text."""
+    return value is None or (type(value) is str and bool(value.strip()))
+
+
 def _safe_ancestry(value):
     return tuple(value) if _valid_ancestry(value) else ()
 
@@ -105,6 +110,14 @@ def validate_observations(obs, as_of):
                 if label is not None and (
                         type(label) is not str or not label.strip()):
                     errors.append(f"invalid {field}: {identifier!r}")
+        # A whitespace-only community is not a second observed community.
+        # Reject malformed labels before G1 breadth and overlap diagnostics.
+        for field in (
+            "pipeline_position", "carrier", "actor_id",
+            "community_id", "semantic_variant",
+        ):
+            if hasattr(o, field) and not _valid_optional_label(getattr(o, field)):
+                errors.append(f"invalid {field}: {identifier!r}")
         if not _finite_real(o.value):
             errors.append(f"invalid numeric value: {o.observation_id}")
         if not _finite_real(o.quality) or not 0 <= o.quality <= 1:

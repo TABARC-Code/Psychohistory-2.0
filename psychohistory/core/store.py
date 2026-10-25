@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .models import Forecast, Observation
 from .numeric_precision import exact_binary64_real
-from .validation import _aware_instant, _valid_ancestry
+from .validation import _aware_instant, _valid_ancestry, _valid_optional_label
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS observations(
 observation_id TEXT PRIMARY KEY, series TEXT, effective_at TEXT, available_at TEXT,
@@ -81,6 +81,12 @@ class Store:
         if (type(o.evidence_role) is not str
                 or o.evidence_role not in ("measurement", "propagation")):
             raise ValueError("observation evidence role must be measurement or propagation")
+        for field in (
+            "pipeline_position", "carrier", "actor_id",
+            "community_id", "semantic_variant",
+        ):
+            if not _valid_optional_label(getattr(o, field)):
+                raise ValueError(f"observation {field} must be non-blank text or NULL")
         # SQLite binds some valid NumPy scalars as BLOBs unless normalised.
         # Convert only after exact-binary64 validation has succeeded.
         self.db.execute(
@@ -110,9 +116,12 @@ class Store:
         issues = []
         checked = 0
         for (identifier, series, source, vintage, effective, available, value,
-             quality, ancestry, content_ancestry, evidence_role) in self.db.execute(
+             quality, ancestry, content_ancestry, evidence_role,
+             pipeline_position, carrier, actor_id, community_id,
+             semantic_variant) in self.db.execute(
             "SELECT observation_id,series,source,vintage,effective_at,available_at, "
-            "value,quality,ancestry,content_ancestry,evidence_role "
+            "value,quality,ancestry,content_ancestry,evidence_role, "
+            "pipeline_position,carrier,actor_id,community_id,semantic_variant "
             "FROM observations ORDER BY observation_id"
         ):
             checked += 1
@@ -151,6 +160,14 @@ class Store:
                     (type(evidence_role) is not str or evidence_role not in
                      ("measurement", "propagation"))):
                 invalid.append("evidence_role")
+            for field, label in (
+                ("pipeline_position", pipeline_position),
+                ("carrier", carrier), ("actor_id", actor_id),
+                ("community_id", community_id),
+                ("semantic_variant", semantic_variant),
+            ):
+                if not _valid_optional_label(label):
+                    invalid.append(field)
             if invalid:
                 issues.append({"observation_id": identifier, "fields": invalid})
         return {

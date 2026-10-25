@@ -2,7 +2,7 @@ from collections import Counter, defaultdict
 from datetime import UTC
 from math import log1p
 
-from ..core.validation import _aware_instant, _valid_ancestry
+from ..core.validation import _aware_instant, _valid_ancestry, _valid_optional_label
 
 
 ATTRIBUTION_HYPOTHESES = (
@@ -92,6 +92,22 @@ def analyse_memetic_observations(observations):
         return {
             "status": "UNRESOLVED",
             "reason": "invalid propagation identity or provenance",
+            "predictive_input": False,
+        }
+
+    # Optional labels determine distinct communities, carriers and variants.
+    # An invalid label must not manufacture breadth or crash Counter hashing.
+    if any(
+        not _valid_optional_label(getattr(event, field, None))
+        for event in events
+        for field in (
+            "pipeline_position", "carrier", "actor_id",
+            "community_id", "semantic_variant",
+        )
+    ):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid propagation metadata label",
             "predictive_input": False,
         }
 
