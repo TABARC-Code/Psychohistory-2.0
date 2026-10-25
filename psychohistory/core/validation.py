@@ -150,7 +150,12 @@ def validate_observations(obs, as_of):
                 type(o.evidence_role) is not str or
                 o.evidence_role not in ("measurement", "propagation")):
             errors.append(f"invalid evidence role: {o.observation_id}")
-        if o.revision_type not in {
+        # Unknown textual revisions retain the legacy warning. Non-text
+        # metadata is invalid evidence, and unhashable objects must not
+        # crash the point-in-time validator.
+        if type(o.revision_type) is not str:
+            errors.append(f"invalid revision type: {o.observation_id}")
+        elif o.revision_type not in {
             "none", "scheduled_revision", "maturation",
             "methodological_revision", "correction"
         }:
