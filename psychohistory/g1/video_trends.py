@@ -9,7 +9,7 @@ from itertools import pairwise
 from math import isfinite, log1p
 
 from ..core.numeric_precision import exact_binary64_real
-from ..core.validation import _aware_instant
+from ..core.validation import _aware_instant, _valid_optional_label
 
 
 def _utc(value):
@@ -59,13 +59,12 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 raise ValueError("invalid exposure")
             if record["format"] not in ("short", "long"):
                 raise ValueError("invalid format")
-            if not all(isinstance(record[k], str) and record[k] for k in ("video_id", "creator_id", "topic")):
+            if not all(type(record[k]) is str and record[k].strip() for k in ("video_id", "creator_id", "topic")):
                 raise ValueError("invalid identifiers")
             # Optional labels identify content ancestry and community breadth.
             # They must remain stable for a video across snapshots.
             for field in ("community_id", "lineage_id"):
-                if (record.get(field) is not None
-                        and not isinstance(record[field], str)):
+                if not _valid_optional_label(record.get(field)):
                     raise ValueError("invalid optional identifier")
             identity = (record["creator_id"], record["topic"],
                         record["format"], published)
