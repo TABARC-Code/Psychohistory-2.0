@@ -33,7 +33,9 @@ def test_insertion_rejects_non_text_revision_before_sqlite(tmp_path, revision_ty
     assert store.db.execute("SELECT COUNT(*) FROM observations").fetchone()[0] == 0
 
 
-@pytest.mark.parametrize("revision_type", [17, False])
+# SQLite TEXT affinity converts inserted numbers into text, so use BLOB
+# values to reproduce a non-text legacy classification on disk.
+@pytest.mark.parametrize("revision_type", [b"\\x01", b"\\x02"])
 def test_legacy_non_text_revision_is_audited_without_mutation(tmp_path, revision_type):
     store = Store(tmp_path / "revision.db")
     store.db.execute(
