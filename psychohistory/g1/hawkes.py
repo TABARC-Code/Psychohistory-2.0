@@ -57,15 +57,19 @@ def fit_exponential_hawkes(events, T):
         return {"status": "UNRESOLVED", "reason": "invalid numeric input",
                 "predictive_input": False}
     if e.ndim != 1 or not np.isfinite(T) or T <= 0 or not np.all(np.isfinite(e)):
-        return {"status": "UNRESOLVED", "reason": "invalid event array or observation window"}
+        return {"status": "UNRESOLVED", "reason": "invalid event array or observation window",
+                "predictive_input": False}
     if np.any(e < 0) or np.any(e >= T):
-        return {"status": "UNRESOLVED", "reason": "events outside observation window"}
+        return {"status": "UNRESOLVED", "reason": "events outside observation window",
+                "predictive_input": False}
     if len(e) < 5:
-        return {"status": "UNRESOLVED", "reason": "need >=5 events"}
+        return {"status": "UNRESOLVED", "reason": "need >=5 events",
+                "predictive_input": False}
     e = np.sort(e)
     if np.any(np.diff(e) == 0):
         return {"status": "UNRESOLVED",
-                "reason": "tied timestamps: event ordering is unidentifiable"}
+                "reason": "tied timestamps: event ordering is unidentifiable",
+                "predictive_input": False}
 
     # Dimensionless time u=t/T. Fitting on [0,1] prevents arbitrary physical
     # time units from changing the optimiser's search geometry. Rates are
@@ -79,7 +83,8 @@ def fit_exponential_hawkes(events, T):
                 "predictive_input": False}
     if np.any(np.diff(u) <= 0):
         return {"status": "UNRESOLVED",
-                "reason": "event times collapse at observation-window precision"}
+                "reason": "event times collapse at observation-window precision",
+                "predictive_input": False}
 
     def nll(z):
         with np.errstate(over="ignore", under="ignore", divide="ignore", invalid="ignore"):
@@ -104,17 +109,20 @@ def fit_exponential_hawkes(events, T):
                   for start in starts]
     finite = [r for r in candidates if r.success and np.isfinite(r.fun)]
     if not finite:
-        return {"status": "UNRESOLVED", "reason": "optimizer did not find a finite solution"}
+        return {"status": "UNRESOLVED", "reason": "optimizer did not find a finite solution",
+                "predictive_input": False}
     result = min(finite, key=lambda r: r.fun)
     if not result.success or not np.isfinite(result.fun):
-        return {"status": "UNRESOLVED", "reason": "optimizer did not find a finite solution"}
+        return {"status": "UNRESOLVED", "reason": "optimizer did not find a finite solution",
+                "predictive_input": False}
     mu_u, alpha_u, beta_u = np.exp(result.x)
     branching = alpha_u / beta_u
     with np.errstate(over="ignore", divide="ignore", invalid="ignore"):
         mu, alpha, beta = np.array([mu_u, alpha_u, beta_u]) / T
     if (not np.all(np.isfinite([mu, alpha, beta, branching]))
             or branching >= 0.999):
-        return {"status": "UNRESOLVED", "reason": "invalid or unstable fit"}
+        return {"status": "UNRESOLVED", "reason": "invalid or unstable fit",
+                "predictive_input": False}
     # A near-zero excitation/decay pair can mimic a Poisson process while
     # alpha/beta remains arbitrary. Numerical convergence alone is insufficient.
     poisson_ll_u = len(e) * (np.log(len(e)) - 1.0)
