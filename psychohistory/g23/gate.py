@@ -4,7 +4,7 @@ The caller-supplied flags are hypotheses about evidence quality, not proof of
 registered holdouts, provenance, measurement validity or multiplicity control.
 No public admission API exists until those checks are implemented and tested.
 """
-from math import isfinite
+from ..core.numeric_precision import exact_binary64_real
 
 
 def coupling_gate(*, out_of_sample_gain=None, valid_null=False,
@@ -37,7 +37,7 @@ def coupling_gate(*, out_of_sample_gain=None, valid_null=False,
 
 
 def _finite_positive(value):
-    try:
-        return isfinite(value) and value > 0
-    except (TypeError, ValueError, OverflowError):
-        return False
+    # Numerical eligibility is not evidence of predictive skill. It still
+    # requires a gain that can be represented without changing its value.
+    return (isinstance(value, (int, float))
+            and exact_binary64_real(value) and value > 0)
