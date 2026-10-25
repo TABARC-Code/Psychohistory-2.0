@@ -63,12 +63,21 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 raise ValueError("invalid exposure")
             if record["format"] not in ("short", "long"):
                 raise ValueError("invalid format")
-            if not all(type(record[k]) is str and record[k].strip() for k in ("video_id", "creator_id", "topic")):
+            if not all(
+                type(record[k]) is str and record[k].strip()
+                and record[k] == record[k].strip()
+                for k in ("video_id", "creator_id", "topic")
+            ):
                 raise ValueError("invalid identifiers")
             # Optional labels identify content ancestry and community breadth.
             # They must remain stable for a video across snapshots.
             for field in ("community_id", "lineage_id"):
-                if not _valid_optional_label(record.get(field)):
+                label = record.get(field)
+                # Padded labels are distinct strings but not distinct measured
+                # communities or content roots. Reject rather than silently
+                # normalise identifiers and obscure the original evidence.
+                if (not _valid_optional_label(label)
+                        or (label is not None and label != label.strip())):
                     raise ValueError("invalid optional identifier")
             identity = (record["creator_id"], record["topic"],
                         record["format"], published)
