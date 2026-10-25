@@ -226,10 +226,25 @@ def validate_observations(obs, as_of):
     else:
         cross_role_status = "NO_SHARED_OBSERVED"
 
-    carriers = {o.carrier for o in propagation if o.carrier}
-    actors = {o.actor_id for o in propagation if o.actor_id}
-    communities = {o.community_id for o in propagation if o.community_id}
-    variants = {o.semantic_variant for o in propagation if o.semantic_variant}
+    # Invalid optional labels have already been recorded as errors above.
+    # Do not hash malformed containers while assembling diagnostic breadth:
+    # a bad observation should fail validation, not crash the entire batch.
+    carriers = {
+        o.carrier for o in propagation
+        if _valid_optional_label(o.carrier) and o.carrier
+    }
+    actors = {
+        o.actor_id for o in propagation
+        if _valid_optional_label(o.actor_id) and o.actor_id
+    }
+    communities = {
+        o.community_id for o in propagation
+        if _valid_optional_label(o.community_id) and o.community_id
+    }
+    variants = {
+        o.semantic_variant for o in propagation
+        if _valid_optional_label(o.semantic_variant) and o.semantic_variant
+    }
 
     return {
         "valid": not errors,
