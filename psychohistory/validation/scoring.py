@@ -5,18 +5,15 @@ holdouts must be verified before supplying rows. No result here can authorise
 G23 predictive use.
 """
 from math import isfinite
-from numbers import Real
 
+from ..core.numeric_precision import exact_binary64_real
 from ..core.validation import _valid_primary_label
 
 
 def _probability(value):
-    if isinstance(value, bool) or not isinstance(value, Real):
-        return False
-    try:
-        return bool(isfinite(value) and 0 <= value <= 1)
-    except (TypeError, ValueError, OverflowError):
-        return False
+    # Keep arithmetic inputs aligned with registration and estimator precision.
+    # A finite rational may still change value when coerced to binary64.
+    return bool(exact_binary64_real(value) and 0 <= value <= 1)
 
 
 def brier(rows):
@@ -51,6 +48,13 @@ def brier(rows):
             return {"status": "UNRESOLVED", "n": 0,
                     "reason": f"invalid probability, baseline or binary outcome at index {index}"}
 
+    # NumPy and exact rational scalars can otherwise leak different arithmetic
+    # and result types into scoring. Convert only after lossless validation.
+    rows = [
+        (identifier, float(probability),
+         float(baseline) if baseline is not None else None, outcome)
+        for identifier, probability, baseline, outcome in rows
+    ]
     bs = sum((row[1] - row[3]) ** 2 for row in rows) / len(rows)
     out = {"status": "MEASURED", "n": len(rows), "brier": bs,
            "validation_scope": "ARITHMETIC_ONLY", "predictive_input": False}
