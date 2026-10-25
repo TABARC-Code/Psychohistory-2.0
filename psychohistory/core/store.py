@@ -82,6 +82,11 @@ class Store:
             raise ValueError("propagation chronology: event follows first availability")
         if not _valid_ancestry(o.ancestry) or not _valid_ancestry(o.content_ancestry):
             raise ValueError("observation ancestry must be lists or tuples of non-blank IDs")
+        # Revision classification is measurement metadata. SQLite will accept
+        # integers and NULLs here, while validation rejects both. Unknown
+        # textual classifications remain valid inputs with a warning.
+        if type(o.revision_type) is not str:
+            raise ValueError("observation revision_type must be text")
         # Evidence role determines whether an event enters G1 propagation or
         # ordinary measurement. Do not persist a role that retrieval might
         # silently reclassify as ordinary evidence.
@@ -123,11 +128,11 @@ class Store:
         issues = []
         checked = 0
         for (identifier, series, source, vintage, effective, available, value,
-             quality, ancestry, content_ancestry, evidence_role,
+             quality, revision_type, ancestry, content_ancestry, evidence_role,
              pipeline_position, carrier, actor_id, community_id,
              semantic_variant) in self.db.execute(
             "SELECT observation_id,series,source,vintage,effective_at,available_at, "
-            "value,quality,ancestry,content_ancestry,evidence_role, "
+            "value,quality,revision_type,ancestry,content_ancestry,evidence_role, "
             "pipeline_position,carrier,actor_id,community_id,semantic_variant "
             "FROM observations ORDER BY observation_id"
         ):
@@ -158,6 +163,8 @@ class Store:
                     and datetime.fromisoformat(effective).astimezone(UTC)
                     > datetime.fromisoformat(available).astimezone(UTC)):
                 invalid.append("propagation chronology")
+            if type(revision_type) is not str:
+                invalid.append("revision_type")
             if not exact_binary64_real(value):
                 invalid.append("value")
             if not exact_binary64_real(quality) or not 0 <= quality <= 1:
