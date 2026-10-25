@@ -7,6 +7,8 @@ G23 predictive use.
 from math import isfinite
 from numbers import Real
 
+from ..core.validation import _valid_primary_label
+
 
 def _probability(value):
     if isinstance(value, bool) or not isinstance(value, Real):
@@ -36,7 +38,7 @@ def brier(rows):
             return {"status": "UNRESOLVED", "n": 0,
                     "reason": f"invalid scoring row shape at index {index}"}
         forecast_id, probability, baseline, outcome = row
-        if not isinstance(forecast_id, str) or not forecast_id.strip():
+        if not _valid_primary_label(forecast_id):
             return {"status": "UNRESOLVED", "n": 0,
                     "reason": f"invalid forecast identifier at index {index}"}
         if forecast_id in ids:
