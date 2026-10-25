@@ -101,6 +101,13 @@ def validate_observations(obs, as_of):
             errors.append(f"future leakage: {o.observation_id}")
         if not _aware_instant(o.effective_at):
             errors.append(f"invalid effective timestamp: {o.observation_id}")
+        # An announcement of a future propagation event is not evidence that
+        # propagation has occurred. Ordinary measurements may legitimately
+        # describe scheduled future shocks and remain separately classified.
+        if (o.is_propagation and _aware_instant(o.effective_at)
+                and _aware_instant(o.available_at)
+                and o.effective_at.astimezone(UTC) > o.available_at.astimezone(UTC)):
+            errors.append(f"propagation chronology: {o.observation_id}")
         identifier = o.observation_id
         if type(identifier) is not str or not identifier.strip():
             # Avoid hashing malformed or unhashable identifiers.
