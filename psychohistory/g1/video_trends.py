@@ -249,6 +249,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 "UNRESOLVED_AVAILABILITY_ORDER" if entry["inverted_availability_pairs"]
                 else "REPORTED_ONLY_UNVERIFIED" if entry["availability_adjacent_pairs"]
                 and entry["availability_reported_pairs"] == entry["availability_adjacent_pairs"]
+                and entry["available_snapshots"] == entry["snapshots"]
                 else "UNVERIFIED_AVAILABILITY"
             ),
             "exposure_pair_coverage_fraction": (
@@ -273,6 +274,11 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             "status": "CANDIDATE_NOT_ADMITTED" if (
                 numeric_ok and not entry["exposure_rollback_video_count"]
                 and not entry["inverted_availability_pairs"]
+                # Retrospective velocity alone cannot establish when counts
+                # first became available to a point-in-time observer.
+                and entry["available_snapshots"] == entry["snapshots"]
+                and entry["availability_adjacent_pairs"] > 0
+                and entry["availability_reported_pairs"] == entry["availability_adjacent_pairs"]
                 and len(entry["paired_creator_ids"]) >= min_creators and entry["paired"]
             ) else "UNRESOLVED",
             "predictive_input": False,
