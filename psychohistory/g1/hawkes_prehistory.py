@@ -92,6 +92,12 @@ def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, be
     u, p, T = _prepared(events, prehistory, T)
     if any(not exact_binary64_real(v) for v in (mu, alpha, beta)):
         raise ValueError("model parameter precision loss or invalid numeric type")
+    # A negative background or excitation is not a Hawkes intensity model.
+    # The decay rate must be positive even when excitation is exactly zero.
+    # Reject invalid physical parameters rather than returning -inf as though
+    # they were legitimate models with zero likelihood for these events.
+    if mu < 0 or alpha < 0 or beta <= 0:
+        raise ValueError("mu and alpha must be nonnegative; beta must be positive")
     mu_u, alpha_u, beta_u = float(mu) * T, float(alpha) * T, float(beta) * T
     ll = _log_likelihood_unit_window_observed_history(u, p, mu_u, alpha_u, beta_u)
     return float(ll - len(u) * np.log(T)) if np.isfinite(ll) else -np.inf
