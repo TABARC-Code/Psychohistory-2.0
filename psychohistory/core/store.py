@@ -5,7 +5,9 @@ from pathlib import Path
 
 from .models import Forecast, Observation
 from .numeric_precision import exact_binary64_real
-from .validation import _aware_instant, _valid_ancestry, _valid_optional_label
+from .validation import (
+    _aware_instant, _valid_ancestry, _valid_optional_label, _valid_primary_label,
+)
 
 SCHEMA = """CREATE TABLE IF NOT EXISTS observations(
 observation_id TEXT PRIMARY KEY, series TEXT, effective_at TEXT, available_at TEXT,
@@ -60,8 +62,8 @@ class Store:
         # Refuse malformed identities before evidence can enter the ledger.
         for field in ("observation_id", "series", "source", "vintage"):
             label = getattr(o, field)
-            if type(label) is not str or not label.strip():
-                raise ValueError(f"observation {field} must be a non-blank string")
+            if not _valid_primary_label(label):
+                raise ValueError(f"observation {field} must be a canonical non-blank string")
         # Validate original numeric types before SQLite coerces them to REAL.
         # An integer beyond binary64 precision or an extended-precision
         # measurement must not silently change on storage.
@@ -132,13 +134,13 @@ class Store:
             checked += 1
             invalid = []
             for field, label in (("observation_id", identifier), ("series", series)):
-                if type(label) is not str or not label.strip():
+                if not _valid_primary_label(label):
                     invalid.append(field)
             # Legacy SQL NULL source/vintage means unrecorded, not a
             # fabricated publication or release. Explicit malformed labels
             # are still corrupt. New writes always require both fields.
             for field, label in (("source", source), ("vintage", vintage)):
-                if label is not None and (type(label) is not str or not label.strip()):
+                if label is not None and not _valid_primary_label(label):
                     invalid.append(field)
             for field, raw in (
                 ("effective_at", effective), ("available_at", available)
