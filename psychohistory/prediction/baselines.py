@@ -49,5 +49,5 @@ def persistence(values):
     if not rows:
         return {"status": "UNMEASURED", "predictive_input": False}
     if any(not _finite_real(value) for value in rows):
-        return {"status": "UNRESOLVED", "reason": "values must be finite real numbers", "predictive_input": False}
+        return {"status": "UNRESOLVED", "reason": "values must be finite exact binary64 measurements", "predictive_input": False}
     return _arithmetic_result(prediction=float(rows[-1]))
