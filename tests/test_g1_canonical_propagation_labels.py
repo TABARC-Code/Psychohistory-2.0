@@ -16,18 +16,18 @@ FIELDS = ("pipeline_position", "carrier", "actor_id", "community_id", "semantic_
 
 
 def observation(identifier, **changes):
-    fields = dict(
-        observation_id=identifier,
-        series="g1:industrial",
-        effective_at=NOW,
-        available_at=NOW,
-        value=1.0,
-        source="measured",
-        evidence_role="propagation",
-        ancestry=("collector",),
-        content_ancestry=("industrial-origin",),
-        community_id=identifier,
-    )
+    fields = {
+        "observation_id": identifier,
+        "series": "g1:industrial",
+        "effective_at": NOW,
+        "available_at": NOW,
+        "value": 1.0,
+        "source": "measured",
+        "evidence_role": "propagation",
+        "ancestry": ("collector",),
+        "content_ancestry": ("industrial-origin",),
+        "community_id": identifier,
+    }
     fields.update(changes)
     return Observation(**fields)
 
