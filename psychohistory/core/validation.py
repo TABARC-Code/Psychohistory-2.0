@@ -24,10 +24,14 @@ def _aware_instant(value):
 
 
 def _valid_ancestry(value):
-    """Require a list or tuple of non-blank source identifiers."""
+    """Require canonical source IDs without silently normalising evidence.
+
+    A padded root and its unpadded spelling must not become two independent
+    measurement sources or content origins. Empty collections remain unknown.
+    """
     return (isinstance(value, (tuple, list))
-            and all(isinstance(token, str) and bool(token.strip())
-                    for token in value))
+            and all(type(token) is str and bool(token.strip())
+                    and token == token.strip() for token in value))
 
 
 def _valid_optional_label(value):
