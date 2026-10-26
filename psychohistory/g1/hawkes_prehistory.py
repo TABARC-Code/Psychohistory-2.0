@@ -9,7 +9,7 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.special import exprel, logsumexp
 
-from .numeric_precision import exact_binary64_real
+from .numeric_precision import exact_binary64_real, unit_window_gaps_preserved
 
 
 def _real_vector(values):
@@ -55,6 +55,8 @@ def _normalised_events(events, past, T):
             or np.any((past < 0) & (p == 0))
             or np.any(np.diff(u) <= 0) or np.any(np.diff(p) <= 0)
             or np.any(u >= 1)):
+        raise ValueError("event precision collapse")
+    if not unit_window_gaps_preserved(events, u, T, past=past, normalised_past=p):
         raise ValueError("event precision collapse")
     return u, p
 

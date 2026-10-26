@@ -8,7 +8,7 @@ import numpy as np
 from scipy.optimize import minimize
 from scipy.special import exprel
 
-from .numeric_precision import exact_binary64_real
+from .numeric_precision import exact_binary64_real, unit_window_gaps_preserved
 
 
 def _log_likelihood_unit_window(u, mu, alpha, beta):
@@ -89,6 +89,10 @@ def fit_exponential_hawkes(events, T):
     if np.any(np.diff(u) <= 0):
         return {"status": "UNRESOLVED",
                 "reason": "event times collapse at observation-window precision",
+                "predictive_input": False}
+    if not unit_window_gaps_preserved(e, u, T):
+        return {"status": "UNRESOLVED",
+                "reason": "excitation or censoring gaps lose precision under normalisation",
                 "predictive_input": False}
 
     def nll(z):
