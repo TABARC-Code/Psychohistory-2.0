@@ -181,6 +181,22 @@ def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, be
             events, past, T, float(mu), float(alpha), float(beta),
         )
     mu_u, alpha_u, beta_u = scaled
+    # A finite score is not necessarily an accurate one. A decay factor can
+    # round to zero while alpha * exp(-beta * gap) still dominates the
+    # background intensity. The unit-window recursion then silently loses
+    # genuine excitation, so use the log-history evaluator in that case.
+    with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+        lost_prehistory = bool(len(p) and np.any(np.exp(beta_u * p) == 0))
+        lost_initial_decay = bool(
+            len(p) and len(u) and np.exp(-beta_u * u[0]) == 0
+        )
+        lost_event_decay = bool(
+            len(u) > 1 and np.any(np.exp(-beta_u * np.diff(u)) == 0)
+        )
+    if lost_prehistory or lost_initial_decay or lost_event_decay:
+        return _physical_log_likelihood(
+            events, past, T, float(mu), float(alpha), float(beta),
+        )
     ll = _log_likelihood_unit_window_observed_history(u, p, mu_u, alpha_u, beta_u)
     if not np.isfinite(ll):
         # Finite physical likelihoods can have event intensities above
