@@ -144,7 +144,16 @@ def analyse_memetic_observations(observations):
     # Direct calls bypass the store's unique observation_id constraint and
     # validate_observations() duplicate check. Repeated IDs can otherwise
     # manufacture both event volume and cross-community lineage overlap.
-    identities = [event.observation_id for event in events]
+    # A mixed direct call is one observation sample, even though only G1
+    # events contribute to propagation. A reused measurement identifier is
+    # not a second independent observation under another evidence role.
+    identities = [row.observation_id for row in rows]
+    if any(not _valid_primary_label(identifier) for identifier in identities):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid observation identifier",
+            "predictive_input": False,
+        }
     if len(set(identities)) != len(identities):
         return {
             "status": "UNRESOLVED",
