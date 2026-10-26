@@ -34,7 +34,9 @@ class Observation:
 
     @property
     def is_propagation(self) -> bool:
-        return self.evidence_role == "propagation"
+        # A malformed array-valued role can yield an array of booleans,
+        # which cannot safely classify evidence or be used in a condition.
+        return type(self.evidence_role) is str and self.evidence_role == "propagation"
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
