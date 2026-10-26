@@ -6,6 +6,7 @@ transmission. This model assumes no observed pre-window history.
 
 import numpy as np
 from scipy.optimize import minimize
+from scipy.special import exprel
 
 from .numeric_precision import exact_binary64_real
 
@@ -28,7 +29,11 @@ def _log_likelihood_unit_window(u, mu, alpha, beta):
             return -np.inf
         log_intensity += np.log(intensity)
         previous = time
-    compensator = mu + (alpha / beta) * np.sum(-np.expm1(-beta * (1.0 - u)))
+    # Integral of each excitation kernel: alpha * delta * exprel(-beta*delta).
+    # This is algebraically identical to alpha/beta * (1-exp(-beta*delta)),
+    # but remains finite when alpha/beta overflows for near-zero decay.
+    remaining = 1.0 - u
+    compensator = mu + alpha * np.sum(remaining * exprel(-beta * remaining))
     return float(log_intensity - compensator)
 
 
