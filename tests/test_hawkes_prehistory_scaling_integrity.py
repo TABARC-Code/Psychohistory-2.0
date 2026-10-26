@@ -18,14 +18,21 @@ IN_WINDOW = [fraction * TINY_WINDOW for fraction in (0.1, 0.2, 0.4, 0.6, 0.8)]
     [-1e308],
     [-1e308, -1e307],
 ])
-def test_conditional_likelihood_rejects_prehistory_normalisation_overflow(prehistory):
-    # Each source timestamp is finite. Dividing by a very short window
-    # overflows to -inf, discarding the observed conditioning history.
-    with pytest.raises(ValueError, match="precision"):
-        conditional_hawkes_log_likelihood(
-            IN_WINDOW, TINY_WINDOW, prehistory=prehistory,
-            mu=1e300, alpha=1e300, beta=1e-308,
-        )
+def test_conditional_likelihood_keeps_physical_prehistory_without_normalisation(prehistory):
+    # The fitted model must reject collapsed unit-window history, but the
+    # fixed-parameter likelihood can evaluate validated physical instants.
+    # The prehistory's finite excitation is not lost when past/T overflows.
+    history = sum(math.exp(1e-308 * t) for t in prehistory)
+    expected = (
+        5 * math.log(1e300)
+        + sum(math.log(1 + history + i) for i in range(5))
+        - (1 + history + 2.9)
+    )
+    result = conditional_hawkes_log_likelihood(
+        IN_WINDOW, TINY_WINDOW, prehistory=prehistory,
+        mu=1e300, alpha=1e300, beta=1e-308,
+    )
+    assert result == pytest.approx(expected, abs=1e-10)
 
 
 def test_prehistory_fit_rejects_normalisation_overflow_before_optimising():
