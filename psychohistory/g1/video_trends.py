@@ -292,7 +292,8 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 if entry["unsafe_view_count_video_count"] else "VALID"
             ),
             "status": "CANDIDATE_NOT_ADMITTED" if (
-                numeric_ok and not entry["unsafe_view_count_video_count"]
+                numeric_ok and entry["view_delta"] > 0
+                and not entry["unsafe_view_count_video_count"]
                 and not entry["exposure_rollback_video_count"]
                 and not entry["inverted_availability_pairs"]
                 # Retrospective velocity alone cannot establish when counts
