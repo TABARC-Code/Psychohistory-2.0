@@ -55,11 +55,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                     continue
             views = record["views"]
             exposure = record.get("exposure")
-            # View counts are discrete. Beyond 2**53, even exactly
-            # representable floats cannot resolve every single-view change.
-            # Match the existing conservative large-integer boundary rather
-            # than allowing floating-point input to bypass it.
-            if not exact_binary64_real(views) or views < 0 or views > 2**53:
+            if not exact_binary64_real(views) or views < 0:
                 raise ValueError("invalid views")
             if exposure is not None and (
                     not exact_binary64_real(exposure) or exposure < 0):
@@ -125,7 +121,8 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         "snapshots": 0, "available_snapshots": 0,
         "availability_adjacent_pairs": 0, "availability_reported_pairs": 0,
         "inverted_availability_pairs": 0,
-        "exposure_snapshots": 0, "exposure_rollback_video_count": 0})
+        "exposure_snapshots": 0, "exposure_rollback_video_count": 0,
+        "unsafe_view_count_video_count": 0})
     for (topic, fmt, _), snapshots in grouped.items():
         snapshots.sort(key=lambda x: x[0])
         # A timestamp collision is ambiguous; exclude it from velocity estimation.
@@ -178,6 +175,13 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         )
         entry["exposure_snapshots"] += len(exposure_history)
         entry["exposure_rollback_video_count"] += int(exposure_rollback)
+        # Binary64 can represent selected large integer-valued floats but
+        # cannot resolve every individual view above 2**53. Keep these
+        # observations for arithmetic diagnostics while withholding a
+        # propagation candidate based on unverified count granularity.
+        entry["unsafe_view_count_video_count"] += int(
+            any(views > 2**53 for _, views, _ in snapshots)
+        )
         entry["videos"] += 1
         entry["snapshots"] += len(snapshots)
         entry["available_snapshots"] += sum(
@@ -269,6 +273,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 entry["exposure_pairs"] / entry["paired"] if entry["paired"] else 0.0
             ),
             "exposure_rollback_video_count": entry["exposure_rollback_video_count"],
+            "unsafe_view_count_video_count": entry["unsafe_view_count_video_count"],
             "exposure_history_status": (
                 "CUMULATIVE_ROLLBACK" if entry["exposure_rollback_video_count"]
                 else "UNMEASURED" if not entry["exposure_snapshots"]
@@ -282,10 +287,13 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             "log_view_delta": (log1p(entry["view_delta"])
                                if isfinite(entry["view_delta"]) else None),
             "numerical_integrity_status": (
-                "VALID" if numeric_ok else "UNRESOLVED_AGGREGATE_OVERFLOW"
+                "UNRESOLVED_AGGREGATE_OVERFLOW" if not numeric_ok
+                else "UNRESOLVED_COUNT_GRANULARITY"
+                if entry["unsafe_view_count_video_count"] else "VALID"
             ),
             "status": "CANDIDATE_NOT_ADMITTED" if (
-                numeric_ok and not entry["exposure_rollback_video_count"]
+                numeric_ok and not entry["unsafe_view_count_video_count"]
+                and not entry["exposure_rollback_video_count"]
                 and not entry["inverted_availability_pairs"]
                 # Retrospective velocity alone cannot establish when counts
                 # first became available to a point-in-time observer.
