@@ -103,6 +103,13 @@ def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, be
     # they were legitimate models with zero likelihood for these events.
     if mu < 0 or alpha < 0 or beta <= 0:
         raise ValueError("mu and alpha must be nonnegative; beta must be positive")
+    # With zero excitation, prehistory and decay cannot affect intensity.
+    # Scale-free Poisson scoring also avoids beta*T overflow/underflow:
+    # those numerical artefacts must not turn a valid null into -inf.
+    if alpha == 0:
+        if mu == 0:
+            return 0.0 if len(u) == 0 else -np.inf
+        return float(len(u) * np.log(float(mu)) - float(mu) * T)
     mu_u, alpha_u, beta_u = float(mu) * T, float(alpha) * T, float(beta) * T
     ll = _log_likelihood_unit_window_observed_history(u, p, mu_u, alpha_u, beta_u)
     return float(ll - len(u) * np.log(T)) if np.isfinite(ll) else -np.inf
