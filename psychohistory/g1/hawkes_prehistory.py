@@ -190,8 +190,14 @@ def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, be
         )
     with np.errstate(over="ignore", under="ignore", invalid="ignore"):
         scaled = [float(mu) * T, float(alpha) * T, float(beta) * T]
+    # Subnormal unit-window rates can be nonzero yet lose most of their
+    # significant digits. That distorts event log intensities without
+    # necessarily producing an overflow or a nonfinite likelihood.
+    # Use physical-time log arithmetic before any such lossy rate enters
+    # the conditional recurrence.
+    normal_min = np.finfo(float).tiny
     if (not np.all(np.isfinite(scaled))
-            or any(original > 0 and scaled_value == 0
+            or any(original > 0 and scaled_value < normal_min
                    for original, scaled_value in zip((mu, alpha, beta), scaled))):
         return _physical_log_likelihood(
             events, past, T, float(mu), float(alpha), float(beta),
