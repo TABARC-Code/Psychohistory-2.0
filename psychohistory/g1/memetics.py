@@ -91,6 +91,20 @@ def analyse_memetic_observations(observations):
             "predictive_input": False,
         }
 
+    # Direct G1 calls also bypass the revision metadata validator. A
+    # non-text classification must not contribute to propagation diagnostics;
+    # unknown textual categories retain the existing warning policy.
+    if any(
+        hasattr(event, "revision_type")
+        and type(event.revision_type) is not str
+        for event in events
+    ):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid propagation revision classification",
+            "predictive_input": False,
+        }
+
     # Direct G1 calls bypass storage. Malformed event identities must not
     # contribute apparent propagation, even when lineage metadata is sound.
     if any(
