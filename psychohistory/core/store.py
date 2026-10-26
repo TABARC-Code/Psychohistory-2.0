@@ -203,6 +203,10 @@ class Store:
     def observations_as_of(self, as_of: datetime, series=None):
         if not _aware_instant(as_of):
             raise ValueError("as_of must be a UTC-convertible aware datetime")
+        # None is the only explicit all-series selector. A blank or falsey
+        # value must not silently broaden an evidence query to every domain.
+        if series is not None and not _valid_primary_label(series):
+            raise ValueError("series must be a canonical non-blank string or None")
         audit = self.audit_stored_observations()
         if audit["status"] != "VALID":
             raise ValueError(
@@ -218,7 +222,7 @@ class Store:
         content_ancestry,carrier,actor_id,community_id,semantic_variant
         FROM observations"""
         args = []
-        if series:
+        if series is not None:
             q += " WHERE series=?"
             args.append(series)
         cutoff = as_of.astimezone(UTC)
