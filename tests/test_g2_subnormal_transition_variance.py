@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-import psychohistory.g2.ou as ou
+from psychohistory.g2 import ou
 
 
 def _probe(monkeypatch, times, values, parameters):
