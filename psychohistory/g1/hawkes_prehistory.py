@@ -182,7 +182,16 @@ def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, be
         )
     mu_u, alpha_u, beta_u = scaled
     ll = _log_likelihood_unit_window_observed_history(u, p, mu_u, alpha_u, beta_u)
-    return float(ll - len(u) * np.log(T)) if np.isfinite(ll) else -np.inf
+    if not np.isfinite(ll):
+        # Finite physical likelihoods can have event intensities above
+        # binary64's largest float. The unit-window calculation multiplies
+        # alpha by the event history before taking its logarithm, so that
+        # intermediate may overflow even when the integrated kernel is finite.
+        # Re-evaluate in log space; genuinely impossible events remain -inf.
+        return _physical_log_likelihood(
+            events, past, T, float(mu), float(alpha), float(beta),
+        )
+    return float(ll - len(u) * np.log(T))
 
 
 def fit_exponential_hawkes_observed_prehistory(events, T, *, prehistory=()):
