@@ -16,7 +16,8 @@ from psychohistory.g1.hawkes_prehistory import conditional_hawkes_log_likelihood
 def _decimal_reference(events, prehistory, window, mu, alpha, beta):
     with localcontext() as context:
         context.prec = 85
-        d = lambda value: Decimal.from_float(float(value))
+        def d(value):
+            return Decimal.from_float(float(value))
         times = [d(value) for value in events]
         history = [d(value) for value in prehistory]
         T, background, excitation, decay = map(d, (window, mu, alpha, beta))
