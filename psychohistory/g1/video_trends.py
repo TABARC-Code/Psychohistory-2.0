@@ -63,6 +63,11 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             # NumPy scalars pass the same exact-value check as Python numbers.
             # Convert only afterwards so the pooled rates stay binary64.
             views = float(views)
+            # View totals are discrete observations, even when a provider
+            # serialises them as floats. Fractional totals manufacture growth.
+            # Exposure remains a measured denominator and may be fractional.
+            if not views.is_integer():
+                raise ValueError("fractional cumulative view count")
             exposure = float(exposure) if exposure is not None else None
             record = {**record, "views": views, "exposure": exposure}
             if record["format"] not in ("short", "long"):
