@@ -43,3 +43,36 @@ def test_finite_normalised_prehistory_remains_usable():
         mu=2.0, alpha=0.5, beta=1.0,
     )
     assert math.isfinite(value)
+
+
+def test_near_zero_decay_has_finite_empty_window_survival():
+    # With no events or prehistory, excitation does not affect survival.
+    result = conditional_hawkes_log_likelihood(
+        [], 1.0, mu=2.0, alpha=1.0, beta=1e-320,
+    )
+    assert result == pytest.approx(-2.0, abs=1e-12)
+
+
+def test_near_zero_decay_prehistory_compensator_is_finite():
+    # As beta tends to zero, each earlier event contributes nearly constant
+    # intensity over the finite window. The alpha/beta expression overflows
+    # although the integral itself is finite.
+    events = [0.2, 0.5]
+    result = conditional_hawkes_log_likelihood(
+        events, 1.0, prehistory=[-0.8, -0.1],
+        mu=2.0, alpha=1.0, beta=1e-320,
+    )
+    expected = math.log(4.0) + math.log(5.0) - 5.3
+    assert result == pytest.approx(expected, abs=1e-12)
+
+
+def test_near_zero_decay_legacy_compensator_is_finite():
+    import numpy as np
+
+    from psychohistory.g1.hawkes import _log_likelihood_unit_window
+
+    result = _log_likelihood_unit_window(
+        np.array([0.2, 0.5]), mu=2.0, alpha=1.0, beta=1e-320,
+    )
+    expected = math.log(2.0) + math.log(3.0) - 3.3
+    assert result == pytest.approx(expected, abs=1e-12)
