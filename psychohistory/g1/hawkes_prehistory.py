@@ -7,6 +7,7 @@ predictive admission. Caller must validate provenance and availability times.
 
 import numpy as np
 from scipy.optimize import minimize
+from scipy.special import exprel
 
 from .numeric_precision import exact_binary64_real
 
@@ -75,9 +76,13 @@ def _log_likelihood_unit_window_observed_history(u, p, mu, alpha, beta):
             log_intensity += np.log(intensity)
             history += 1.0
             previous = t
-        compensator = mu + (alpha / beta) * (
-            h0 * (-np.expm1(-beta))
-            + np.sum(-np.expm1(-beta * (1.0 - u)))
+        # The kernel integral is alpha * delta * exprel(-beta*delta).
+        # Avoid alpha/beta: it may overflow while the finite-window
+        # compensator remains perfectly finite as beta tends to zero.
+        remaining = 1.0 - u
+        compensator = mu + alpha * (
+            h0 * exprel(-beta)
+            + np.sum(remaining * exprel(-beta * remaining))
         )
         score = log_intensity - compensator
         return float(score) if np.isfinite(score) else -np.inf
