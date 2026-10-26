@@ -71,6 +71,19 @@ material is not independent evidence of separate transmission.
    No retrospective comparison, however interesting, admits G23 or proves
    prospective skill.
 
+## Historical narrative data acquisition
+
+The GDELT 2.0 event, mention and knowledge-graph archives provide
+15-minute publication batches and are a candidate source of multilingual
+coverage and source-network observations. Use the archived batch identifier
+and first-seen time, not the date assigned to the described real-world event.
+Current query results or subsequently revised classifications are not proof
+of what the system could have known at a 2024 forecast origin. Preserve
+original file vintages, batch checksums, collection gaps, language coverage
+and source duplication before attempting Hawkes exposure estimates.
+
+Source documentation: https://gdeltproject.org/data.html
+
 ## Missing inputs and current decision
 
 No independently timestamped narrative event panel, coverage denominator,
