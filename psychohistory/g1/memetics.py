@@ -71,8 +71,13 @@ def analyse_memetic_observations(observations):
     rows = list(observations)
     # Direct G1 calls bypass the store and measurement validator. Reject
     # malformed roles rather than silently excluding them from event counts.
-    if any(type(o.evidence_role) is not str or o.evidence_role not in (
-            "measurement", "propagation") for o in rows):
+    if any(
+        hasattr(o, "evidence_role") and (
+            type(o.evidence_role) is not str
+            or o.evidence_role not in ("measurement", "propagation")
+        )
+        for o in rows
+    ):
         return {
             "status": "UNRESOLVED",
             "reason": "invalid evidence role",
