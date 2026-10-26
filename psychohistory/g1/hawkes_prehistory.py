@@ -25,32 +25,43 @@ def _real_vector(values):
     return result
 
 
-def _prepared(events, prehistory, T):
+def _physical_events(events, prehistory, T):
+    """Validate the original physical event times without rescaling them."""
     if not exact_binary64_real(T):
         raise ValueError("invalid window type or precision loss")
     T = float(T)
     if not np.isfinite(T) or T <= 0:
         raise ValueError("invalid window")
-    events = _real_vector(events)
-    past = _real_vector(prehistory)
+    events = np.sort(_real_vector(events))
+    past = np.sort(_real_vector(prehistory))
     if (np.any(events < 0) or np.any(events >= T)
             or np.any(past >= 0)):
         raise ValueError("events outside their respective windows")
-    events = np.sort(events)
-    past = np.sort(past)
     if (np.any(np.diff(events) <= 0) or np.any(np.diff(past) <= 0)):
         raise ValueError("tied timestamps")
-    u = events / T
-    p = past / T
-    # Both sides of the window origin matter: a positive in-window event
-    # cannot be silently rounded onto zero, nor can a negative prehistory
-    # event become an event exactly at the origin during normalisation.
+    return events, past, T
+
+
+def _normalised_events(events, past, T):
+    """Normalise only if every distinct physical instant survives binary64."""
+    with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+        u = events / T
+        p = past / T
+    # The fit requires distinct unit-window instants. Fixed-parameter
+    # scoring can instead use physical time when this transformation loses
+    # information. Never pass rounded timestamps to either calculation.
     if (not np.all(np.isfinite(u)) or not np.all(np.isfinite(p))
             or np.any((events > 0) & (u == 0))
             or np.any((past < 0) & (p == 0))
             or np.any(np.diff(u) <= 0) or np.any(np.diff(p) <= 0)
             or np.any(u >= 1)):
         raise ValueError("event precision collapse")
+    return u, p
+
+
+def _prepared(events, prehistory, T):
+    events, past, T = _physical_events(events, prehistory, T)
+    u, p = _normalised_events(events, past, T)
     return u, p, T
 
 
@@ -137,37 +148,37 @@ def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, be
     This is an explanatory likelihood, not a registered forecast. Prehistory
     and event timestamps must be independently verified by the caller.
     """
-    u, p, T = _prepared(events, prehistory, T)
+    events, past, T = _physical_events(events, prehistory, T)
     if any(not exact_binary64_real(v) for v in (mu, alpha, beta)):
         raise ValueError("model parameter precision loss or invalid numeric type")
-    # A negative background or excitation is not a Hawkes intensity model.
-    # The decay rate must be positive even when excitation is exactly zero.
-    # Reject invalid physical parameters rather than returning -inf as though
-    # they were legitimate models with zero likelihood for these events.
     if mu < 0 or alpha < 0 or beta <= 0:
         raise ValueError("mu and alpha must be nonnegative; beta must be positive")
-    # An empty observed window with no prehistory has no excitation, even
-    # when alpha is nonzero. Avoid overflow in alpha*T or beta*T: the exact
-    # survival likelihood is simply the background compensator.
-    if len(u) == 0 and len(p) == 0:
+    # Empty history and zero excitation have exact physical-time scores.
+    # Neither depends on unit-window representability of observed instants.
+    if len(events) == 0 and len(past) == 0:
         return -float(mu) * T
-    # With zero excitation, prehistory and decay cannot affect intensity.
-    # Scale-free Poisson scoring also avoids beta*T overflow/underflow:
-    # those numerical artefacts must not turn a valid null into -inf.
     if alpha == 0:
         if mu == 0:
-            return 0.0 if len(u) == 0 else -np.inf
-        return float(len(u) * np.log(float(mu)) - float(mu) * T)
+            return 0.0 if len(events) == 0 else -np.inf
+        return float(len(events) * np.log(float(mu)) - float(mu) * T)
+    try:
+        u, p = _normalised_events(events, past, T)
+    except ValueError as exc:
+        if str(exc) != "event precision collapse":
+            raise
+        # Do not discard real prehistory or merge physical events merely
+        # because a unit-window transform cannot represent their times.
+        # The optimiser still rejects such windows through _prepared().
+        return _physical_log_likelihood(
+            events, past, T, float(mu), float(alpha), float(beta),
+        )
     with np.errstate(over="ignore", under="ignore", invalid="ignore"):
         scaled = [float(mu) * T, float(alpha) * T, float(beta) * T]
     if (not np.all(np.isfinite(scaled))
             or any(original > 0 and scaled_value == 0
                    for original, scaled_value in zip((mu, alpha, beta), scaled))):
-        # Reuse the already validated source timestamps, not u*T: reversing
-        # extreme normalisation can round an observed prehistory timestamp.
         return _physical_log_likelihood(
-            np.sort(_real_vector(events)), np.sort(_real_vector(prehistory)),
-            T, float(mu), float(alpha), float(beta),
+            events, past, T, float(mu), float(alpha), float(beta),
         )
     mu_u, alpha_u, beta_u = scaled
     ll = _log_likelihood_unit_window_observed_history(u, p, mu_u, alpha_u, beta_u)
