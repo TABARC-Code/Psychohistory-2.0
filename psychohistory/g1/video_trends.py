@@ -55,7 +55,11 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                     continue
             views = record["views"]
             exposure = record.get("exposure")
-            if not exact_binary64_real(views) or views < 0:
+            # View counts are discrete. Beyond 2**53, even exactly
+            # representable floats cannot resolve every single-view change.
+            # Match the existing conservative large-integer boundary rather
+            # than allowing floating-point input to bypass it.
+            if not exact_binary64_real(views) or views < 0 or views > 2**53:
                 raise ValueError("invalid views")
             if exposure is not None and (
                     not exact_binary64_real(exposure) or exposure < 0):
