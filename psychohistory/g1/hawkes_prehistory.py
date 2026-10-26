@@ -172,6 +172,20 @@ def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, be
         return _physical_log_likelihood(
             events, past, T, float(mu), float(alpha), float(beta),
         )
+    # Normalisation can retain distinct timestamps but distort their
+    # differences. The compensator uses T-t and excitation uses t_i-t_j;
+    # subtracting rounded unit times can lose a material part of either gap.
+    # Check both against gaps formed in physical time before unit scoring.
+    with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+        physical_remaining = (T - events) / T
+        physical_gaps = np.diff(events) / T
+        unit_remaining = 1.0 - u
+        unit_gaps = np.diff(u)
+    if (not np.allclose(physical_remaining, unit_remaining, rtol=1e-12, atol=0)
+            or not np.allclose(physical_gaps, unit_gaps, rtol=1e-12, atol=0)):
+        return _physical_log_likelihood(
+            events, past, T, float(mu), float(alpha), float(beta),
+        )
     with np.errstate(over="ignore", under="ignore", invalid="ignore"):
         scaled = [float(mu) * T, float(alpha) * T, float(beta) * T]
     if (not np.all(np.isfinite(scaled))
