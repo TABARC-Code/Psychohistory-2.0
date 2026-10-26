@@ -114,6 +114,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 (observed, views, record))
     topics = defaultdict(lambda: {
         "creator_ids": set(), "paired_creator_ids": set(),
+        "growing_paired_creator_ids": set(),
         "community_ids": set(), "lineage_ids": set(),
         "videos": 0, "view_delta": 0.0, "hours": 0.0,
         "exposure_view_delta": 0.0, "exposure_delta": 0.0,
@@ -206,6 +207,10 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             entry["hours"] += hours
             entry["paired"] += 1
             entry["paired_creator_ids"].add(last["creator_id"])
+            # A flat history establishes observation coverage, not a
+            # separate creator contributing positive propagation growth.
+            if delta > 0:
+                entry["growing_paired_creator_ids"].add(last["creator_id"])
             e0, e1 = before[2].get("exposure"), after[2].get("exposure")
             if (not exposure_rollback and e0 is not None and e1 is not None
                     and e1 > e0):
@@ -248,6 +253,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             "topic": topic, "format": fmt, "video_count": entry["videos"],
             "independent_creator_count_unverified": creators,
             "paired_creator_count_unverified": len(entry["paired_creator_ids"]),
+            "growing_paired_creator_count_unverified": len(entry["growing_paired_creator_ids"]),
             "snapshot_availability_coverage_fraction": (
                 entry["available_snapshots"] / entry["snapshots"]
                 if entry["snapshots"] else 0.0
@@ -301,7 +307,8 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
                 and entry["available_snapshots"] == entry["snapshots"]
                 and entry["availability_adjacent_pairs"] > 0
                 and entry["availability_reported_pairs"] == entry["availability_adjacent_pairs"]
-                and len(entry["paired_creator_ids"]) >= min_creators and entry["paired"]
+                and len(entry["growing_paired_creator_ids"]) >= min_creators
+                and entry["paired"]
             ) else "UNRESOLVED",
             "predictive_input": False,
             "algorithmic_amplification": "NOT_IDENTIFIABLE_FROM_PUBLIC_COUNTS",
