@@ -1,14 +1,19 @@
 import argparse
 import json
-from datetime import UTC, datetime
+from datetime import datetime
 
 from .core.store import Store
+from .core.validation import _aware_instant
 from .pipeline import evaluate
 
 
 def dt(value):
     parsed = datetime.fromisoformat(value)
-    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    # A wall clock without an offset is not a verified information cutoff.
+    # Do not quietly turn it into UTC and shift the point-in-time evidence set.
+    if not _aware_instant(parsed):
+        raise ValueError("--as-of must include an explicit timezone offset or Z")
+    return parsed
 
 
 def main():
