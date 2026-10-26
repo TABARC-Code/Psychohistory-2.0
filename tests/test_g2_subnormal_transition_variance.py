@@ -55,12 +55,13 @@ def test_ordinary_ou_transition_likelihood_is_unchanged(monkeypatch):
                for score in scores)
 
 
-def test_subnormal_gap_is_not_a_claim_of_identifiability(monkeypatch):
-    # A finite likelihood is necessary, not sufficient, for a valid fit.
+def test_smallest_subnormal_gap_keeps_finite_likelihood(monkeypatch):
+    # The smallest positive binary64 time gap is still a real interval.
+    # This only establishes numerical validity, not model identifiability.
     scores = _probe(
         monkeypatch,
-        [0.0, 1e-320, 0.5, 1.0],
-        [0.0, 1e-160, 0.5, 0.2],
+        [0.0, float.fromhex("0x0.0000000000001p-1022"), 0.5, 1.0],
+        [0.0, 1e-162, 0.5, 0.2],
         [-15.0, 0.0, 0.0],
     )
     assert all(isfinite(score) for score in scores)
