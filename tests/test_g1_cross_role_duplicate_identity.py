@@ -68,3 +68,16 @@ def test_distinct_cross_role_identities_preserve_g1_diagnostics():
         "cross_community_lineage_overlap_event_fraction_lower_bound"
     ] == 1.0
     assert result["predictive_input"] is False
+
+
+def test_unhashable_measurement_identifier_does_not_crash_direct_g1():
+    rows = [
+        replace(_observation("shock-id", "measurement"),
+                observation_id=["invalid", "id"]),
+        _observation("first-event", "propagation"),
+    ]
+    assert validate_observations(rows, NOW)["valid"] is False
+    result = analyse_memetic_observations(rows)
+    assert result["status"] == "UNRESOLVED"
+    assert "identifier" in result["reason"]
+    assert result["predictive_input"] is False
