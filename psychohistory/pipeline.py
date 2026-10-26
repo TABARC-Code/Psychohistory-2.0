@@ -1,6 +1,6 @@
 from datetime import UTC
 
-from .core.validation import _aware_instant, validate_observations
+from .core.validation import _aware_instant, _valid_primary_label, validate_observations
 from .g1.memetics import analyse_memetic_observations
 from .validation.scoring import brier
 
@@ -8,6 +8,22 @@ from .validation.scoring import brier
 def _effective_by(observation, cutoff):
     effective = observation.effective_at
     return _aware_instant(effective) and effective.astimezone(UTC) <= cutoff
+
+
+
+def _sample_identity_errors(observations):
+    """A mixed point-in-time sample shares one observation ID namespace."""
+    seen = set()
+    errors = []
+    for row in observations:
+        identifier = row.observation_id
+        if not _valid_primary_label(identifier):
+            errors.append(f"invalid observation_id: {identifier!r}")
+        elif identifier in seen:
+            errors.append(f"duplicate id: {identifier}")
+        else:
+            seen.add(identifier)
+    return errors
 
 
 def evaluate(store, as_of):
@@ -40,6 +56,18 @@ def evaluate(store, as_of):
         validate_observations(g1_obs, as_of)
         if candidate_validation["valid"] else candidate_validation
     )
+    # The G1 subset must not silently discard an identity collision in the
+    # surrounding industrial, economic or other measurement evidence.
+    # Keep unrelated measurement quality failures local to their own domain.
+    identity_errors = _sample_identity_errors(obs)
+    if identity_errors:
+        g1_measurement = {
+            **g1_measurement,
+            "valid": False,
+            "errors": list(dict.fromkeys([
+                *g1_measurement["errors"], *identity_errors,
+            ])),
+        }
     if g1_measurement["valid"]:
         memetics = analyse_memetic_observations(g1_obs)
     else:
