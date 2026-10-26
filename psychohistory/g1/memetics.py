@@ -68,7 +68,17 @@ def _possible_cross_community_overlap_upper(events):
 
 
 def analyse_memetic_observations(observations):
-    events = [o for o in observations if o.is_propagation]
+    rows = list(observations)
+    # Direct G1 calls bypass the store and measurement validator. Reject
+    # malformed roles rather than silently excluding them from event counts.
+    if any(type(o.evidence_role) is not str or o.evidence_role not in (
+            "measurement", "propagation") for o in rows):
+        return {
+            "status": "UNRESOLVED",
+            "reason": "invalid evidence role",
+            "predictive_input": False,
+        }
+    events = [o for o in rows if o.is_propagation]
     if not events:
         return {
             "status": "UNRESOLVED",
