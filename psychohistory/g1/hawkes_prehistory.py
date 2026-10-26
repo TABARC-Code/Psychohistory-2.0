@@ -57,7 +57,7 @@ def _normalised_events(events, past, T):
             or np.any(u >= 1)):
         raise ValueError("event precision collapse")
     if not unit_window_gaps_preserved(events, u, T, past=past, normalised_past=p):
-        raise ValueError("event precision collapse: excitation or censoring gap")
+        raise ValueError("event precision collapse")
     return u, p
 
 
