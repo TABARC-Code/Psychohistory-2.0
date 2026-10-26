@@ -16,7 +16,7 @@ def test_multiple_nearby_events_keep_finite_log_intensity():
     expected = (
         math.log(alpha) + math.log(decay)
         + math.log(alpha) + math.log(decay * (1 + decay))
-        - (1.0 + 3 * alpha / beta)
+        - (1.0 + 3 * (alpha / beta))
     )
     score = conditional_hawkes_log_likelihood(
         [0.0, gap, 2 * gap], 1.0, mu=1.0, alpha=alpha, beta=beta,
