@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.optimize import minimize
+from scipy.special import exprel
 
 from ..core.numeric_precision import exact_binary64_real
 
@@ -61,7 +62,10 @@ def fit_ou(times, values):
             sigma = np.exp(z[2])
             decay = np.exp(-a * dt)
             mean = mu + (prev - mu) * decay
-            variance = sigma**2 * (-np.expm1(-2 * a * dt)) / (2 * a)
+            # The OU kernel integral is dt * exprel(-2*a*dt). Dividing
+            # a rounded-to-zero expm1 result by a can erase a real,
+            # subnormal transition variance and reject a finite likelihood.
+            variance = sigma**2 * dt * exprel(-2 * a * dt)
             if not np.all(np.isfinite(variance)) or np.any(variance <= 0):
                 return np.inf
             value = 0.5 * np.sum(np.log(2 * np.pi * variance) + (nxt - mean)**2 / variance)
