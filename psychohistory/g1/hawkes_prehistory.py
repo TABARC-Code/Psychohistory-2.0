@@ -7,7 +7,7 @@ predictive admission. Caller must validate provenance and availability times.
 
 import numpy as np
 from scipy.optimize import minimize
-from scipy.special import exprel
+from scipy.special import exprel, logsumexp
 
 from .numeric_precision import exact_binary64_real
 
@@ -88,6 +88,49 @@ def _log_likelihood_unit_window_observed_history(u, p, mu, alpha, beta):
         return float(score) if np.isfinite(score) else -np.inf
 
 
+def _physical_log_likelihood(events, past, T, mu, alpha, beta):
+    """Stable conditional score when scaling every rate by T loses precision.
+
+    Work in physical time and log intensities. A kernel integral is evaluated
+    in log space so a large decay/window product cannot erase finite
+    excitation or manufacture an infinite intermediate rate.
+    """
+    with np.errstate(over="ignore", under="ignore", divide="ignore", invalid="ignore"):
+        log_mu = float(np.log(mu)) if mu > 0 else -np.inf
+        log_alpha = float(np.log(alpha)) if alpha > 0 else -np.inf
+
+        def log_kernel_integral(delta):
+            if alpha == 0 or delta == 0:
+                return -np.inf
+            z = beta * delta
+            if z >= 1:
+                return log_alpha - np.log(beta) + np.log(-np.expm1(-z))
+            return log_alpha + np.log(delta) + np.log(exprel(-z))
+
+        log_initial = float(logsumexp(beta * past)) if len(past) else -np.inf
+        log_history = log_initial
+        previous = 0.0
+        event_score = 0.0
+        for t in events:
+            if t > previous:
+                log_history -= beta * (t - previous)
+            log_intensity = np.logaddexp(log_mu, log_alpha + log_history)
+            if not np.isfinite(log_intensity):
+                return -np.inf
+            event_score += log_intensity
+            log_history = np.logaddexp(log_history, 0.0)
+            previous = t
+
+        contributions = [
+            log_mu + np.log(T),
+            log_initial + log_kernel_integral(T),
+        ]
+        contributions.extend(log_kernel_integral(T - t) for t in events)
+        compensator = np.exp(logsumexp(contributions))
+        score = event_score - compensator
+        return float(score) if np.isfinite(score) else -np.inf
+
+
 def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, beta):
     """Score a fixed physical-parameter model, conditional on observed history.
 
@@ -115,7 +158,18 @@ def conditional_hawkes_log_likelihood(events, T, *, prehistory=(), mu, alpha, be
         if mu == 0:
             return 0.0 if len(u) == 0 else -np.inf
         return float(len(u) * np.log(float(mu)) - float(mu) * T)
-    mu_u, alpha_u, beta_u = float(mu) * T, float(alpha) * T, float(beta) * T
+    with np.errstate(over="ignore", under="ignore", invalid="ignore"):
+        scaled = [float(mu) * T, float(alpha) * T, float(beta) * T]
+    if (not np.all(np.isfinite(scaled))
+            or any(original > 0 and scaled_value == 0
+                   for original, scaled_value in zip((mu, alpha, beta), scaled))):
+        # Reuse the already validated source timestamps, not u*T: reversing
+        # extreme normalisation can round an observed prehistory timestamp.
+        return _physical_log_likelihood(
+            np.sort(_real_vector(events)), np.sort(_real_vector(prehistory)),
+            T, float(mu), float(alpha), float(beta),
+        )
+    mu_u, alpha_u, beta_u = scaled
     ll = _log_likelihood_unit_window_observed_history(u, p, mu_u, alpha_u, beta_u)
     return float(ll - len(u) * np.log(T)) if np.isfinite(ll) else -np.inf
 
