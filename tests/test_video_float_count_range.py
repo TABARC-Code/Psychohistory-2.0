@@ -1,4 +1,4 @@
-"""Discrete view counters must retain unit precision across numeric input types.
+"""Discrete view counters must not claim unit precision beyond binary64 limits.
 
 Binary64 can represent some integers above 2**53, but it cannot resolve
 consecutive unit changes there. Large floating-point counts must not bypass
@@ -34,8 +34,11 @@ def test_large_integral_floats_do_not_bypass_discrete_count_boundary():
         snapshot("large", 1, float(2**53 + 4)),
     ]
     result = analyse_video_trends(rows, NOW, min_creators=1)
-    assert result["rejected_records"] == 2
-    assert result["series"] == []
+    assert result["rejected_records"] == 0
+    assert len(result["series"]) == 1
+    assert result["series"][0]["status"] == "UNRESOLVED"
+    assert result["series"][0]["unsafe_view_count_video_count"] == 1
+    assert result["series"][0]["numerical_integrity_status"] == "UNRESOLVED_COUNT_GRANULARITY"
     assert result["predictive_input"] is False
 
 
@@ -47,9 +50,11 @@ def test_large_float_counter_cannot_contaminate_valid_video_velocity():
         snapshot("valid", 1, 14),
     ]
     result = analyse_video_trends(rows, NOW, min_creators=1)
-    assert result["rejected_records"] == 2
+    assert result["rejected_records"] == 0
     assert len(result["series"]) == 1
-    assert result["series"][0]["view_velocity_per_video_hour"] == 4.0
+    assert result["series"][0]["status"] == "UNRESOLVED"
+    assert result["series"][0]["unsafe_view_count_video_count"] == 1
+    assert result["series"][0]["numerical_integrity_status"] == "UNRESOLVED_COUNT_GRANULARITY"
     assert result["series"][0]["predictive_input"] is False
 
 
