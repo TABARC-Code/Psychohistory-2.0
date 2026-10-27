@@ -116,7 +116,7 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         "creator_ids": set(), "paired_creator_ids": set(),
         "growing_paired_creator_ids": set(),
         "community_ids": set(), "lineage_ids": set(),
-        "videos": 0, "view_delta": 0.0, "hours": 0.0,
+        "videos": 0, "view_delta": 0.0, "view_delta_exact": 0, "hours": 0.0,
         "exposure_view_delta": 0.0, "exposure_delta": 0.0,
         "exposure_pairs": 0, "paired": 0,
         "snapshots": 0, "available_snapshots": 0,
@@ -203,6 +203,11 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             if not isfinite(delta) or delta < 0 or not isfinite(hours) or hours <= 0:
                 rejected += 1
                 continue
+            # Each snapshot count is an integral binary64 value. Subtracting
+            # two accepted counts gives an exact integer delta, but summing
+            # those deltas as floats can discard unit increments above 2**53.
+            # Keep an integer audit total separate from the legacy rate.
+            entry["view_delta_exact"] += int(delta)
             entry["view_delta"] += delta
             entry["hours"] += hours
             entry["paired"] += 1
@@ -249,8 +254,13 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             and (entry["hours"] == 0 or velocity is not None)
             and (entry["exposure_delta"] == 0 or exposure_rate is not None)
         )
+        # Aggregate integer precision is a separate boundary from each
+        # video's count precision. The rounded velocity remains descriptive,
+        # never a verified count or an eligible propagation candidate.
+        aggregate_count_granularity_ok = entry["view_delta_exact"] <= 2**53
         result.append({
             "topic": topic, "format": fmt, "video_count": entry["videos"],
+            "view_delta_exact_integer": str(entry["view_delta_exact"]),
             "independent_creator_count_unverified": creators,
             "paired_creator_count_unverified": len(entry["paired_creator_ids"]),
             "growing_paired_creator_count_unverified": len(entry["growing_paired_creator_ids"]),
@@ -295,11 +305,14 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             "numerical_integrity_status": (
                 "UNRESOLVED_AGGREGATE_OVERFLOW" if not numeric_ok
                 else "UNRESOLVED_COUNT_GRANULARITY"
-                if entry["unsafe_view_count_video_count"] else "VALID"
+                if entry["unsafe_view_count_video_count"]
+                else "UNRESOLVED_AGGREGATE_COUNT_GRANULARITY"
+                if not aggregate_count_granularity_ok else "VALID"
             ),
             "status": "CANDIDATE_NOT_ADMITTED" if (
                 numeric_ok and entry["view_delta"] > 0
                 and not entry["unsafe_view_count_video_count"]
+                and aggregate_count_granularity_ok
                 and not entry["exposure_rollback_video_count"]
                 and not entry["inverted_availability_pairs"]
                 # Retrospective velocity alone cannot establish when counts
