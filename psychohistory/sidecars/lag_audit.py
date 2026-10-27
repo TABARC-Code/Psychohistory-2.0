@@ -57,6 +57,7 @@ def audit_directional_lags(observations, as_of, hypotheses):
             "observed_pair_count": 0,
             "source_available_before_target_count": 0,
             "source_available_before_target_first_release_count": 0,
+            "source_available_before_target_and_first_release_count": 0,
             "target_preannounced_pair_count": 0,
             "retrospective_or_contemporaneous_pair_count": 0,
             "shared_measurement_ancestry_pair_count": 0,
@@ -73,6 +74,13 @@ def audit_directional_lags(observations, as_of, hypotheses):
                     counts["target_preannounced_pair_count"] += 1
                 if source_time < target_time and source_available < target_available:
                     counts["source_available_before_target_first_release_count"] += 1
+                # Marginal lead and preannouncement counts do not reveal
+                # whether the *same pair* preceded both the physical event
+                # and its first release. Preserve that intersection directly.
+                if (source_time < target_time
+                        and source_available < target_time
+                        and source_available < target_available):
+                    counts["source_available_before_target_and_first_release_count"] += 1
                 # Availability strictly before the consequence is necessary
                 # for a leading observation, but is not sufficient for skill.
                 if source_time < target_time and source_available < target_time:
