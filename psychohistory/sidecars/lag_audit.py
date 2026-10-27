@@ -56,17 +56,23 @@ def audit_directional_lags(observations, as_of, hypotheses):
         counts = {
             "observed_pair_count": 0,
             "source_available_before_target_count": 0,
+            "source_available_before_target_first_release_count": 0,
+            "target_preannounced_pair_count": 0,
             "retrospective_or_contemporaneous_pair_count": 0,
             "shared_measurement_ancestry_pair_count": 0,
             "unknown_measurement_ancestry_pair_count": 0,
             "shared_content_ancestry_pair_count": 0,
         }
         for source, source_time, source_available in by_series[hypothesis.source]:
-            for target, target_time, _ in by_series[hypothesis.target]:
+            for target, target_time, target_available in by_series[hypothesis.target]:
                 lag = target_time - source_time
                 if lag.days != hypothesis.lag_days or lag.days < 0:
                     continue
                 counts["observed_pair_count"] += 1
+                if target_available < target_time:
+                    counts["target_preannounced_pair_count"] += 1
+                if source_time < target_time and source_available < target_available:
+                    counts["source_available_before_target_first_release_count"] += 1
                 # Availability strictly before the consequence is necessary
                 # for a leading observation, but is not sufficient for skill.
                 if source_time < target_time and source_available < target_time:
