@@ -126,3 +126,17 @@ def test_elapsed_days_are_not_calendar_dates_or_rounded_hours():
         observations, CUTOFF, [DirectedHypothesis("g1", "health", 0)]
     )
     assert result["directional_lags"][0]["observed_pair_count"] == 1
+
+
+def test_preannounced_consequence_is_not_an_independent_narrative_lead():
+    observations = [
+        row("narrative", "g1", 1, propagation=True),
+        row("announced-shock", "industry", 2, available_days=0),
+    ]
+    item = audit_directional_lags(
+        observations, CUTOFF, [DirectedHypothesis("g1", "industry", 1)]
+    )["directional_lags"][0]
+    assert item["observed_pair_count"] == 1
+    assert item["source_available_before_target_count"] == 1
+    assert item["target_preannounced_pair_count"] == 1
+    assert item["source_available_before_target_first_release_count"] == 0
