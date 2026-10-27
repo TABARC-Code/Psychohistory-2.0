@@ -203,10 +203,10 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
             if not isfinite(delta) or delta < 0 or not isfinite(hours) or hours <= 0:
                 rejected += 1
                 continue
-            # Each snapshot count is an integral binary64 value. Subtracting
-            # two accepted counts gives an exact integer delta, but summing
-            # those deltas as floats can discard unit increments above 2**53.
-            # Keep an integer audit total separate from the legacy rate.
+            # Unit-resolvable snapshot counts have exact integer deltas, but
+            # floating-point pooling can discard increments above 2**53.
+            # Large source counters are already marked unsafe; their deltas
+            # cannot be certified exact by this audit accumulator.
             entry["view_delta_exact"] += int(delta)
             entry["view_delta"] += delta
             entry["hours"] += hours
@@ -260,7 +260,10 @@ def analyse_video_trends(observations, as_of, *, min_creators=3):
         aggregate_count_granularity_ok = entry["view_delta_exact"] <= 2**53
         result.append({
             "topic": topic, "format": fmt, "video_count": entry["videos"],
-            "view_delta_exact_integer": str(entry["view_delta_exact"]),
+            "view_delta_exact_integer": (
+                str(entry["view_delta_exact"])
+                if not entry["unsafe_view_count_video_count"] else None
+            ),
             "independent_creator_count_unverified": creators,
             "paired_creator_count_unverified": len(entry["paired_creator_ids"]),
             "growing_paired_creator_count_unverified": len(entry["growing_paired_creator_ids"]),

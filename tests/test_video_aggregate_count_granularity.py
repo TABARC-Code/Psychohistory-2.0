@@ -52,3 +52,28 @@ def test_unsafe_pooled_count_does_not_poison_independent_small_topic():
     assert series["health"]["view_delta_exact_integer"] == "30"
     assert series["health"]["numerical_integrity_status"] == "VALID"
     assert series["health"]["status"] == "CANDIDATE_NOT_ADMITTED"
+
+
+def test_unsafe_source_counter_cannot_claim_exact_aggregate_audit():
+    # Large binary64 counters are already withheld, but their difference
+    # is not necessarily the true difference between integer view counts.
+    rows = []
+    for video in ("large1", "large2", "large3"):
+        start = CUTOFF - timedelta(hours=2)
+        end = CUTOFF - timedelta(hours=1)
+        base = {
+            "video_id": video, "creator_id": "creator-" + video,
+            "topic": "hardware", "format": "short",
+            "published_at": CUTOFF - timedelta(days=1),
+        }
+        rows.extend([
+            {**base, "observed_at": start, "available_at": start,
+             "views": float(2**53 + 2)},
+            {**base, "observed_at": end, "available_at": end,
+             "views": float(2**53 + 4)},
+        ])
+    series = analyse_video_trends(rows, CUTOFF)["series"][0]
+    assert series["unsafe_view_count_video_count"] == 3
+    assert series["view_delta_exact_integer"] is None
+    assert series["numerical_integrity_status"] == "UNRESOLVED_COUNT_GRANULARITY"
+    assert series["status"] == "UNRESOLVED"
